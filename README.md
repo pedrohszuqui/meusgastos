@@ -61,6 +61,26 @@ cargo build --release --bin gastos-desktop
 O executável fica em `target/release/gastos-desktop.exe` (um único arquivo, sem instalação).
 Os dados ficam em `%APPDATA%\MeusGastos` (ou na pasta definida por `GASTOS_DATA_DIR`).
 
+## Linux (Flatpak)
+
+O app para computador também é empacotado como **Flatpak** (`br.com.meusgastos`), gerado pelo
+GitHub Actions (`.github/workflows/flatpak.yml`) a partir de `flatpak/br.com.meusgastos.yml`.
+Baixe `MeusGastos-linux.flatpak` (nas releases ou em *Actions → Flatpak → Artifacts*) e instale:
+
+```bash
+flatpak install --user MeusGastos-linux.flatpak
+```
+
+```bash
+flatpak run br.com.meusgastos
+```
+
+Os dados ficam em `~/.var/app/br.com.meusgastos/data/MeusGastos`. Para gerar num Linux, sem o CI:
+
+```bash
+flatpak-builder --user --install --force-clean build-dir flatpak/br.com.meusgastos.yml
+```
+
 ## Versão web (iPhone, iPad e navegadores)
 
 O mesmo código compilado para WebAssembly (`wasm32-unknown-unknown`), com o mesmo visual e a mesma

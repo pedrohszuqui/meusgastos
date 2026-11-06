@@ -162,6 +162,16 @@ As credenciais da pasta `oauth/` são embutidas automaticamente: o APK leva `and
    **Mais informações → Executar assim mesmo** (o app não tem assinatura de código paga).
 3. Não precisa instalar. Os dados ficam em `%APPDATA%\MeusGastos`.
 
+**Linux** (`MeusGastos-linux.flatpak`)
+1. O arquivo é gerado pelo GitHub Actions (workflow **Flatpak**): a cada push que muda o código
+   ele fica em *Actions → Flatpak → Artifacts*, e ao publicar uma release é anexado a ela.
+2. Para o login do Google funcionar no Flatpak, cadastre uma vez os secrets do repositório
+   (*Settings → Secrets and variables → Actions*) com o **conteúdo** dos JSON:
+   `OAUTH_COMPUTADOR_JSON` (de `oauth/computador.json`) e `OAUTH_TV_JSON` (de `oauth/tv.json`).
+   Pelo terminal: `gh secret set OAUTH_COMPUTADOR_JSON < oauth/computador.json` (idem para o TV).
+3. No Linux do amigo: `flatpak install --user MeusGastos-linux.flatpak` e abrir "Meus Gastos" no menu.
+   (Precisa do Flathub configurado para baixar o runtime `org.freedesktop.Platform//25.08`.)
+
 ## 5.1 Versão web (iPhone, iPad e qualquer navegador) — hospedagem gratuita
 
 A versão web é o **mesmo app** (mesmo código Rust/Slint, compilado para WebAssembly), com o mesmo

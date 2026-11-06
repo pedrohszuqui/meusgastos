@@ -1,10 +1,10 @@
 # Flatpak do Meus Gastos (versão para computador, Linux).
 # Gerado pelo GitHub Actions (.github/workflows/flatpak.yml); para gerar localmente num Linux:
-#   flatpak install flathub org.freedesktop.Sdk//24.08 org.freedesktop.Sdk.Extension.rust-stable//24.08
+#   flatpak install flathub org.freedesktop.Sdk//25.08 org.freedesktop.Sdk.Extension.rust-stable//25.08
 #   flatpak-builder --user --install --force-clean build-dir flatpak/br.com.meusgastos.yml
 id: br.com.meusgastos
 runtime: org.freedesktop.Platform
-runtime-version: '24.08'
+runtime-version: '25.08'
 sdk: org.freedesktop.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
