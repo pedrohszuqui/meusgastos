@@ -17,7 +17,31 @@ permissions:
   contents: write
 
 jobs:
+  # Lista as crates do Cargo.lock como fontes do Flatpak (baixadas uma vez e reaproveitadas pelo cache).
+  # Roda fora do container do Flatpak, que não tem gerenciador de pacotes para o Python.
+  cargo-sources:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Gerar cargo-sources.json
+        run: |
+          pip install 'aiohttp>=3.9.5,<4' 'tomlkit>=0.13.3,<1' 'PyYAML>=6.0.2,<7'
+          curl -sSfL -o "$RUNNER_TEMP/flatpak-cargo-generator.py" \
+            https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/9d86d336a39b9af38b86f114b6ce5820fe260f91/cargo/flatpak-cargo-generator.py
+          python "$RUNNER_TEMP/flatpak-cargo-generator.py" Cargo.lock -o cargo-sources.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cargo-sources
+          path: cargo-sources.json
+          retention-days: 1
+
   flatpak:
+    needs: cargo-sources
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
@@ -51,12 +75,10 @@ jobs:
           fi
 
       - name: Dependências Rust (cargo-sources.json)
-        # Lista as crates do Cargo.lock como fontes do Flatpak: baixadas uma vez e reaproveitadas pelo cache.
-        run: |
-          dnf install -y python3-aiohttp python3-tomlkit python3-pyyaml
-          curl -sSfL -o /tmp/flatpak-cargo-generator.py \
-            https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/9d86d336a39b9af38b86f114b6ce5820fe260f91/cargo/flatpak-cargo-generator.py
-          python3 /tmp/flatpak-cargo-generator.py Cargo.lock -o flatpak/cargo-sources.json
+        uses: actions/download-artifact@v4
+        with:
+          name: cargo-sources
+          path: flatpak
 
       # Fixado num commit (não em @master): o job tem permissão de escrita e os clientes OAuth no disco.
       - uses: flathub-infra/flatpak-github-actions/flatpak-builder@933e9e8ca36e85046ebca8e211f0785c6becac40
