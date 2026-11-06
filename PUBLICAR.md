@@ -165,7 +165,8 @@ As credenciais da pasta `oauth/` são embutidas automaticamente: o APK leva `and
 **Linux** (`MeusGastos-linux.flatpak`)
 1. O arquivo é gerado pelo GitHub Actions (workflow **Flatpak**): a cada push que muda o código
    ele fica em *Actions → Flatpak → Artifacts*, e ao publicar uma release é anexado a ela.
-2. Para o login do Google funcionar no Flatpak, cadastre uma vez os secrets do repositório
+2. **Obrigatório:** cadastre uma vez os secrets do repositório (sem eles o workflow falha de propósito,
+   para nunca gerar um Flatpak sem login do Google)
    (*Settings → Secrets and variables → Actions*) com o **conteúdo** dos JSON:
    `OAUTH_COMPUTADOR_JSON` (de `oauth/computador.json`) e `OAUTH_TV_JSON` (de `oauth/tv.json`).
    Pelo terminal: `gh secret set OAUTH_COMPUTADOR_JSON < oauth/computador.json` (idem para o TV).

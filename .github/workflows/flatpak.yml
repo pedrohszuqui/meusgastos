@@ -1,7 +1,8 @@
 # Gera o Flatpak (Linux) do Meus Gastos.
 # - Manual (Actions → Flatpak → Run workflow) ou a cada push que muda o código: baixe em "Artifacts".
 # - Ao publicar uma release: o arquivo MeusGastos-linux.flatpak é anexado a ela.
-# Os clientes OAuth vêm dos secrets OAUTH_COMPUTADOR_JSON e OAUTH_TV_JSON (conteúdo dos JSON).
+# Os clientes OAuth vêm dos secrets OAUTH_COMPUTADOR_JSON e OAUTH_TV_JSON (conteúdo dos JSON);
+# sem eles o workflow falha em vez de gerar um Flatpak sem login do Google.
 name: Flatpak
 
 on:
@@ -28,11 +29,19 @@ jobs:
         env:
           COMPUTADOR: ${{ secrets.OAUTH_COMPUTADOR_JSON }}
           TV: ${{ secrets.OAUTH_TV_JSON }}
+        # Sem os dois clientes o Flatpak não teria login do Google: o build para aqui.
         run: |
+          if [ -z "$COMPUTADOR" ] || [ -z "$TV" ]; then
+            echo "::error::Cadastre os secrets OAUTH_COMPUTADOR_JSON e OAUTH_TV_JSON (veja PUBLICAR.md). Build cancelado."
+            exit 1
+          fi
           mkdir -p oauth
-          if [ -n "$COMPUTADOR" ]; then printf '%s' "$COMPUTADOR" > oauth/computador.json; fi
-          if [ -n "$TV" ]; then printf '%s' "$TV" > oauth/tv.json; fi
-          ls oauth
+          printf '%s' "$COMPUTADOR" > oauth/computador.json
+          printf '%s' "$TV" > oauth/tv.json
+          for f in oauth/computador.json oauth/tv.json; do
+            grep -q '"client_id"' "$f" || { echo "::error::$f não parece um JSON de cliente OAuth do Google."; exit 1; }
+          done
+          echo "Clientes OAuth prontos."
 
       - uses: flathub-infra/flatpak-github-actions/flatpak-builder@master
         with:
