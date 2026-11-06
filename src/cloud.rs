@@ -2,13 +2,21 @@
 //! automática (ao abrir, alguns segundos após cada alteração e a cada 5 minutos)
 //! e sincronização manual.
 
-use crate::{model, refresh, sync, AppWindow, State};
+use crate::{model, refresh, AppWindow, State};
+#[cfg(not(target_arch = "wasm32"))]
+use crate::sync;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::sync as backend;
+#[cfg(target_arch = "wasm32")]
+use crate::web as backend;
 use chrono::Local;
 use slint::{ComponentHandle, Timer, TimerMode};
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering::SeqCst};
+use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::atomic::AtomicU64;
 use std::time::Duration;
 
 thread_local! {
@@ -20,6 +28,7 @@ thread_local! {
 static RUNNING: AtomicBool = AtomicBool::new(false);
 static PENDING: AtomicBool = AtomicBool::new(false);
 /// Incrementado para cancelar um login em andamento.
+#[cfg(not(target_arch = "wasm32"))]
 static LOGIN_GEN: AtomicU64 = AtomicU64::new(0);
 
 fn with_app<R>(f: impl FnOnce(&Rc<RefCell<State>>, &AppWindow) -> R) -> Option<R> {
@@ -38,23 +47,47 @@ fn data_dir(state: &Rc<RefCell<State>>) -> PathBuf {
 pub fn install(ui: &AppWindow, state: Rc<RefCell<State>>) {
     let dir = data_dir(&state);
     APP.with(|a| *a.borrow_mut() = Some((state.clone(), ui.as_weak())));
-    ui.set_sync_configured(sync::configured());
-    ui.set_sync_has_direct(sync::has_loopback());
-    ui.set_sync_has_code(sync::has_device());
-    ui.set_sync_connected(sync::connected(&dir));
+    ui.set_sync_configured(backend::configured());
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        ui.set_sync_has_direct(sync::has_loopback());
+        ui.set_sync_has_code(sync::has_device());
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        // No navegador o login é sempre pelo redirecionamento do Google.
+        ui.set_sync_has_direct(backend::configured());
+        ui.set_sync_has_code(false);
+    }
+    ui.set_sync_connected(backend::connected(&dir));
 
     ui.on_sync_now(|| run(true));
 
-    let s = state.clone();
-    let w = ui.as_weak();
-    ui.on_sync_connect(move || start_login(w.clone(), data_dir(&s)));
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let s = state.clone();
+        let w = ui.as_weak();
+        ui.on_sync_connect(move || start_login(w.clone(), data_dir(&s)));
 
-    let s = state.clone();
-    let w = ui.as_weak();
-    ui.on_sync_connect_code(move || start_code_login(w.clone(), data_dir(&s)));
+        let s = state.clone();
+        let w = ui.as_weak();
+        ui.on_sync_connect_code(move || start_code_login(w.clone(), data_dir(&s)));
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let w = ui.as_weak();
+        ui.on_sync_connect(move || {
+            if let Err(e) = backend::start_login() {
+                if let Some(ui) = w.upgrade() {
+                    ui.set_sync_error(e.into());
+                }
+            }
+        });
+    }
 
     let w = ui.as_weak();
     ui.on_sync_cancel(move || {
+        #[cfg(not(target_arch = "wasm32"))]
         LOGIN_GEN.fetch_add(1, SeqCst);
         if let Some(ui) = w.upgrade() {
             ui.set_sync_pending(0);
@@ -65,8 +98,9 @@ pub fn install(ui: &AppWindow, state: Rc<RefCell<State>>) {
     let s = state.clone();
     let w = ui.as_weak();
     ui.on_sync_disconnect(move || {
+        #[cfg(not(target_arch = "wasm32"))]
         LOGIN_GEN.fetch_add(1, SeqCst);
-        sync::disconnect(&data_dir(&s));
+        backend::disconnect(&data_dir(&s));
         if let Some(ui) = w.upgrade() {
             ui.set_sync_connected(false);
             ui.set_sync_status("".into());
@@ -90,7 +124,7 @@ pub fn run(manual: bool) {
     with_app(|state, ui| {
         let st = state.borrow();
         let dir = st.store.dir().to_path_buf();
-        if !sync::connected(&dir) {
+        if !backend::connected(&dir) {
             ui.set_sync_connected(false);
             if manual {
                 ui.set_sync_error("Conecte sua conta Google para sincronizar.".into());
@@ -107,14 +141,20 @@ pub fn run(manual: bool) {
         }
         let snapshot = st.store.data.clone();
         let rev = st.revision.get();
+        #[cfg(not(target_arch = "wasm32"))]
         std::thread::spawn(move || {
             let result = sync::sync(&dir, snapshot);
             let _ = slint::invoke_from_event_loop(move || finish(result, rev));
         });
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(async move {
+            let result = backend::sync(dir, snapshot).await;
+            finish(result, rev);
+        });
     });
 }
 
-fn finish(result: Result<sync::SyncResult, String>, rev: u64) {
+fn finish(result: Result<backend::SyncResult, String>, rev: u64) {
     let again = with_app(|state, ui| {
         RUNNING.store(false, SeqCst);
         ui.set_sync_busy(false);
@@ -136,7 +176,7 @@ fn finish(result: Result<sync::SyncResult, String>, rev: u64) {
             }
             Err(e) => {
                 ui.set_sync_error(e.into());
-                ui.set_sync_connected(sync::connected(st.store.dir()));
+                ui.set_sync_connected(backend::connected(st.store.dir()));
                 false
             }
         }
@@ -147,6 +187,7 @@ fn finish(result: Result<sync::SyncResult, String>, rev: u64) {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn start_login(w: slint::Weak<AppWindow>, dir: PathBuf) {
     let gen = LOGIN_GEN.fetch_add(1, SeqCst) + 1;
     let Some(ui) = w.upgrade() else { return };
@@ -182,6 +223,7 @@ fn start_login(w: slint::Weak<AppWindow>, dir: PathBuf) {
 }
 
 /// Login por código (cliente "TV"): mostra o código e espera a autorização.
+#[cfg(not(target_arch = "wasm32"))]
 fn start_code_login(w: slint::Weak<AppWindow>, dir: PathBuf) {
     let gen = LOGIN_GEN.fetch_add(1, SeqCst) + 1;
     if let Some(ui) = w.upgrade() {
@@ -253,4 +295,15 @@ fn start_code_login(w: slint::Weak<AppWindow>, dir: PathBuf) {
             }
         }
     });
+}
+/// Versão web: resultado do retorno da página de login do Google.
+#[cfg(target_arch = "wasm32")]
+pub fn login_result(ui: &AppWindow, result: Result<(), String>) {
+    match result {
+        Ok(()) => {
+            ui.set_sync_connected(true);
+            ui.set_sync_status("Conectado. Sincronizando...".into());
+        }
+        Err(e) => ui.set_sync_error(e.into()),
+    }
 }

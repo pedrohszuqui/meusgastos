@@ -11,6 +11,7 @@
 //!   usar o celular e o computador ao mesmo tempo.
 
 use crate::model::{self, Data};
+use crate::storage;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::io::Read;
@@ -561,26 +562,21 @@ pub fn sync(dir: &Path, local: Data) -> Result<SyncResult, String> {
     }
 
     // Fotos: envia as que só existem aqui e baixa as que só existem na nuvem.
-    let photos_dir = dir.join("fotos");
-    let _ = std::fs::create_dir_all(&photos_dir);
     let referenced: BTreeSet<&str> = merged.expenses.iter().filter_map(|e| e.photo.as_deref()).collect();
     let (mut up, mut down) = (0, 0);
     for name in referenced {
         if !safe_photo_name(name) {
             continue;
         }
-        let path = photos_dir.join(name);
-        match (path.exists(), find(name)) {
+        match (storage::has_photo(dir, name), find(name)) {
             (true, None) => {
-                let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
+                let bytes = storage::read_photo(dir, name).ok_or("foto local ilegível")?;
                 upload_new(&tok, &folder, name, "image/jpeg", &bytes)?;
                 up += 1;
             }
             (false, Some(f)) => {
                 let bytes = download(&tok, &f.id)?;
-                let tmp = photos_dir.join(format!("{name}.tmp"));
-                std::fs::write(&tmp, bytes).map_err(|e| e.to_string())?;
-                std::fs::rename(&tmp, &path).map_err(|e| e.to_string())?;
+                storage::write_photo(dir, name, &bytes)?;
                 down += 1;
             }
             _ => {}

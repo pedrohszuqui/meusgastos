@@ -7,9 +7,10 @@
 //! | `oauth/computador.json` | App para computador                   | login direto no Windows/Linux/macOS   |
 //! | `oauth/android.json`    | App para computador (só para o celular) | login direto no Android (opcional: sem ele, o Android usa `computador.json`) |
 //! | `oauth/tv.json`         | TVs e dispositivos de entrada limitada | login por código (alternativa)        |
+//! | `oauth/web.json`        | Aplicativo da Web                      | login na versão web (só o ID é embutido) |
 //!
 //! Também aceitos: variáveis `GASTOS_<CLIENTE>_CLIENT_ID` / `GASTOS_<CLIENTE>_CLIENT_SECRET`
-//! (CLIENTE = COMPUTADOR, ANDROID ou TV) e o antigo `google-oauth.json` (tratado como TV).
+//! (CLIENTE = COMPUTADOR, ANDROID, TV ou WEB) e o antigo `google-oauth.json` (tratado como TV).
 //! Sem nenhuma credencial o app funciona normalmente, só sem sincronização.
 
 use std::path::Path;
@@ -38,6 +39,10 @@ fn main() {
 
     emit("GASTOS_LOOPBACK", direto);
     emit("GASTOS_DEVICE", tv);
+
+    // Versão web: só o client ID (o login por redirecionamento não usa o secret).
+    let web = load("WEB", "oauth/web.json").map(|(id, _)| (id, String::new()));
+    emit("GASTOS_WEB", web);
 }
 
 /// Lê um cliente de variáveis de ambiente ou de um JSON baixado do Google Cloud.
@@ -60,11 +65,15 @@ fn load(env_name: &str, file: &str) -> Option<(String, String)> {
     let text = std::fs::read_to_string(file).unwrap_or_else(|e| panic!("não foi possível ler {file}: {e}"));
     let v: serde_json::Value =
         serde_json::from_str(&text).unwrap_or_else(|_| panic!("{file} não é um JSON válido"));
-    // Formato baixado do Console ({"installed": {...}}) ou simples ({"client_id": ...}).
-    let obj = v.get("installed").unwrap_or(&v);
-    if v.get("web").is_some() {
+    // Formato baixado do Console ({"installed": {...}} ou {"web": {...}}) ou simples ({"client_id": ...}).
+    let is_web_file = env_name == "WEB";
+    if v.get("web").is_some() && !is_web_file {
         panic!("{file} é de um cliente do tipo \"Aplicativo da Web\"; crie um \"App para computador\" ou \"TV\".");
     }
+    if v.get("installed").is_some() && is_web_file {
+        panic!("{file} deve ser de um cliente do tipo \"Aplicativo da Web\".");
+    }
+    let obj = v.get("installed").or_else(|| v.get("web")).unwrap_or(&v);
     let id = obj.get("client_id").and_then(|x| x.as_str()).unwrap_or_default().to_string();
     let secret = obj.get("client_secret").and_then(|x| x.as_str()).unwrap_or_default().to_string();
     if id.is_empty() {

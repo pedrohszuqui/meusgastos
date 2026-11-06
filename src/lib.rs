@@ -1,12 +1,17 @@
 //! Meus Gastos — controle de gastos mensais por categoria, com foto opcional.
-//! UI em Slint; roda no Android (APK via cargo-apk) e no desktop (para testes).
+//! UI em Slint; roda no Android (APK via cargo-apk), no computador e no navegador
+//! (WebAssembly, inclusive iPhone/iPad como app da tela de início).
 
 mod cloud;
 mod dashboard;
 mod model;
+mod storage;
+#[cfg(not(target_arch = "wasm32"))]
 mod sync;
 #[cfg(target_os = "android")]
 mod android;
+#[cfg(target_arch = "wasm32")]
+mod web;
 
 use chrono::{Datelike, Duration, Local, NaiveDate};
 use model::{format_amount, Expense, Store};
@@ -125,7 +130,22 @@ impl State {
 }
 
 fn load_image(state: &State, name: &str) -> Image {
-    Image::load_from_path(&state.store.photo_path(name)).unwrap_or_default()
+    state.store.photo_bytes(name).map(|b| image_from_bytes(&b)).unwrap_or_default()
+}
+
+/// Decodifica a foto (JPEG/PNG) para exibição. Funciona igual no Android, PC e navegador.
+fn image_from_bytes(bytes: &[u8]) -> Image {
+    match image::load_from_memory(bytes) {
+        Ok(img) => {
+            let rgba = img.to_rgba8();
+            Image::from_rgba8(slint::SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(
+                rgba.as_raw(),
+                rgba.width(),
+                rgba.height(),
+            ))
+        }
+        Err(_) => Image::default(),
+    }
 }
 
 fn refresh(ui: &AppWindow, st: &State) {
@@ -249,6 +269,8 @@ pub(crate) fn open_url(url: &str) {
     let _ = std::process::Command::new("open").arg(url).spawn();
     #[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
     let _ = std::process::Command::new("xdg-open").arg(url).spawn();
+    #[cfg(target_arch = "wasm32")]
+    web::open_url(url);
 }
 
 pub fn run(data_dir: PathBuf) -> Result<(), slint::PlatformError> {
@@ -269,9 +291,15 @@ pub fn run(data_dir: PathBuf) -> Result<(), slint::PlatformError> {
     }));
     refresh(&ui, &state.borrow());
     cloud::install(&ui, state.clone());
+    // Navegador: a página pode ter acabado de voltar do login do Google.
+    #[cfg(target_arch = "wasm32")]
+    if let Some(result) = web::handle_login_redirect() {
+        cloud::login_result(&ui, result);
+    }
 
     // No computador, abre numa janela grande (layout com barra lateral).
-    #[cfg(not(target_os = "android"))]
+    // (No navegador o tamanho é o da página.)
+    #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
     ui.window().set_size(slint::LogicalSize::new(1280.0, 820.0));
 
     // ---------- Painel / navegação ----------
@@ -677,8 +705,8 @@ pub fn run(data_dir: PathBuf) -> Result<(), slint::PlatformError> {
     let (w, s) = (ui.as_weak(), state.clone());
     ui.on_pick_photo(move || {
         let ui = w.unwrap();
-        let dest = s.borrow().store.photos_dir().join(unique_photo_name());
-        platform_pick_photo(&ui, dest);
+        let dir = s.borrow().store.dir().to_path_buf();
+        platform_pick_photo(&ui, dir, unique_photo_name());
     });
 
     #[cfg(target_os = "android")]
@@ -694,8 +722,8 @@ pub fn run(data_dir: PathBuf) -> Result<(), slint::PlatformError> {
         });
         let (w, s) = (ui.as_weak(), state.clone());
         ui.on_picker_select(move |i| {
-            let dest = s.borrow().store.photos_dir().join(unique_photo_name());
-            android::import_selected(w.clone(), i as usize, dest);
+            let dir = s.borrow().store.dir().to_path_buf();
+            android::import_selected(w.clone(), i as usize, dir, unique_photo_name());
         });
     }
 
@@ -741,20 +769,32 @@ pub fn run(data_dir: PathBuf) -> Result<(), slint::PlatformError> {
         refresh(&ui, &st);
     });
 
+    // No navegador o laço de eventos continua depois que `run` retorna (ou lança a
+    // exceção de controle do winit): mantém a janela viva.
+    #[cfg(target_arch = "wasm32")]
+    {
+        web::fit_to_page(ui.as_weak());
+        std::mem::forget(ui.clone_strong());
+    }
     ui.run()
 }
 
 // ---------- Seleção de foto por plataforma ----------
 
 #[cfg(target_os = "android")]
-fn platform_pick_photo(ui: &AppWindow, _dest: PathBuf) {
+fn platform_pick_photo(ui: &AppWindow, _dir: PathBuf, _name: String) {
     ui.set_picker_status("".into());
     ui.set_page(2);
     android::open_picker(ui.as_weak());
 }
 
-#[cfg(not(target_os = "android"))]
-fn platform_pick_photo(ui: &AppWindow, dest: PathBuf) {
+#[cfg(target_arch = "wasm32")]
+fn platform_pick_photo(ui: &AppWindow, dir: PathBuf, name: String) {
+    web::pick_photo(ui.as_weak(), dir, name);
+}
+
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
+fn platform_pick_photo(ui: &AppWindow, dir: PathBuf, name: String) {
     let Some(path) = rfd::FileDialog::new()
         .set_title("Escolher foto")
         .add_filter("Imagens", &["jpg", "jpeg", "png", "webp"])
@@ -767,8 +807,7 @@ fn platform_pick_photo(ui: &AppWindow, dest: PathBuf) {
     std::thread::spawn(move || {
         let result = std::fs::read(&path)
             .map_err(|e| e.to_string())
-            .and_then(|bytes| model::import_photo(&bytes, &dest));
-        let name = dest.file_name().unwrap().to_string_lossy().to_string();
+            .and_then(|bytes| model::import_photo(&bytes, &dir, &name));
         let _ = w.upgrade_in_event_loop(move |ui| match result {
             Ok(()) => ui.invoke_photo_imported(name.into()),
             Err(e) => ui.invoke_photo_failed(format!("Não foi possível abrir a foto: {e}").into()),
@@ -778,7 +817,7 @@ fn platform_pick_photo(ui: &AppWindow, dest: PathBuf) {
 
 // ---------- Pontos de entrada ----------
 
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 pub fn run_desktop() {
     let base = std::env::var_os("APPDATA")
         .or_else(|| std::env::var_os("XDG_DATA_HOME"))
@@ -787,6 +826,24 @@ pub fn run_desktop() {
         .unwrap_or_else(|| PathBuf::from("."));
     let dir = std::env::var_os("GASTOS_DATA_DIR").map(PathBuf::from).unwrap_or(base.join("MeusGastos"));
     run(dir).expect("falha ao iniciar a interface");
+}
+
+/// Navegador, passo 1 (chamado pelo index.html): carrega as fotos guardadas no IndexedDB.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub async fn prepare() {
+    if let Err(e) = storage::init().await {
+        web_sys::console::warn_2(&"Fotos offline indisponíveis:".into(), &e);
+    }
+}
+
+/// Navegador, passo 2: abre o app no `<canvas id="canvas">` da página.
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn start() -> Result<(), wasm_bindgen::JsValue> {
+    // Erros internos aparecem no console do navegador (em vez de só travar a página).
+    std::panic::set_hook(Box::new(|info| web_sys::console::error_1(&format!("Meus Gastos: {info}").into())));
+    run(PathBuf::from("/meusgastos")).map_err(|e| wasm_bindgen::JsValue::from_str(&e.to_string()))
 }
 
 #[cfg(target_os = "android")]

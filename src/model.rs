@@ -3,7 +3,7 @@
 use chrono::{Datelike, NaiveDate};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fs;
+use crate::storage;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -62,23 +62,19 @@ pub struct Data {
     pub categories_updated: i64,
 }
 
-/// Milissegundos desde 1970.
+/// Milissegundos desde 1970. (Via chrono: no navegador `SystemTime` não existe.)
 pub fn now_ms() -> i64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() as i64)
-        .unwrap_or(0)
+    chrono::Utc::now().timestamp_millis()
 }
 
 /// ID único entre aparelhos: tempo em ms nos bits altos + 16 bits aleatórios.
 /// Dentro do mesmo app os IDs são sempre crescentes (nunca se repetem).
 pub fn new_id() -> u64 {
-    use std::hash::{BuildHasher, Hasher};
     use std::sync::atomic::{AtomicU64, Ordering};
     static LAST: AtomicU64 = AtomicU64::new(0);
-    let mut h = std::collections::hash_map::RandomState::new().build_hasher();
-    h.write_i64(now_ms());
-    let candidate = ((now_ms() as u64) << 16) | (h.finish() & 0xffff);
+    let mut rnd = [0u8; 2];
+    let _ = getrandom::getrandom(&mut rnd);
+    let candidate = ((now_ms() as u64) << 16) | u16::from_le_bytes(rnd) as u64;
     let prev = LAST
         .try_update(Ordering::SeqCst, Ordering::SeqCst, |last| Some(candidate.max(last + 1)))
         .unwrap_or(0);
@@ -176,42 +172,36 @@ pub struct Store {
 
 impl Store {
     pub fn load(dir: PathBuf) -> Store {
-        let _ = fs::create_dir_all(dir.join("fotos"));
-        let file = dir.join("gastos.json");
-        let data = match fs::read_to_string(&file) {
-            Ok(text) => match serde_json::from_str::<Data>(&text) {
+        let data = match storage::read_text(&dir, "gastos.json") {
+            Some(text) => match serde_json::from_str::<Data>(&text) {
                 Ok(d) => d,
                 Err(_) => {
                     // Arquivo corrompido: guarda uma cópia e recomeça, sem perder o original.
-                    let _ = fs::copy(&file, dir.join("gastos.json.corrompido"));
+                    let _ = storage::write_text(&dir, "gastos.json.corrompido", &text);
                     Data::default()
                 }
             },
-            Err(_) => Data::default(),
+            None => Data::default(),
         };
         Store { dir, data }
     }
 
     pub fn save(&self) -> std::io::Result<()> {
-        let tmp = self.dir.join("gastos.json.tmp");
-        fs::write(&tmp, serde_json::to_vec_pretty(&self.data)?)?;
-        fs::rename(&tmp, self.dir.join("gastos.json"))
+        let text = serde_json::to_string_pretty(&self.data)?;
+        storage::write_text(&self.dir, "gastos.json", &text)
     }
 
     pub fn dir(&self) -> &Path {
         &self.dir
     }
 
-    pub fn photos_dir(&self) -> PathBuf {
-        self.dir.join("fotos")
-    }
-
-    pub fn photo_path(&self, name: &str) -> PathBuf {
-        self.photos_dir().join(name)
+    /// Bytes da foto (JPEG) guardada com esse nome.
+    pub fn photo_bytes(&self, name: &str) -> Option<Vec<u8>> {
+        storage::read_photo(&self.dir, name)
     }
 
     pub fn delete_photo(&self, name: &str) {
-        let _ = fs::remove_file(self.photo_path(name));
+        storage::delete_photo(&self.dir, name)
     }
 
     /// A foto é usada por alguma despesa (fora as indicadas)? As parcelas de uma
@@ -412,8 +402,8 @@ pub fn month_name(month: u32) -> &'static str {
 }
 
 /// Converte a foto escolhida (bytes JPEG/PNG/WebP) em um JPEG reduzido e
-/// já rotacionado conforme o EXIF, salvo em `dest`.
-pub fn import_photo(bytes: &[u8], dest: &Path) -> Result<(), String> {
+/// já rotacionado conforme o EXIF.
+pub fn encode_photo(bytes: &[u8]) -> Result<Vec<u8>, String> {
     use image::{codecs::jpeg::JpegEncoder, DynamicImage, ImageDecoder, ImageReader};
     use std::io::Cursor;
 
@@ -433,12 +423,17 @@ pub fn import_photo(bytes: &[u8], dest: &Path) -> Result<(), String> {
         img = img.resize(MAX, MAX, image::imageops::FilterType::Triangle);
     }
     let rgb = img.to_rgb8();
-    let file = fs::File::create(dest).map_err(|e| e.to_string())?;
-    let mut w = std::io::BufWriter::new(file);
-    JpegEncoder::new_with_quality(&mut w, 85)
+    let mut out = Vec::new();
+    JpegEncoder::new_with_quality(&mut out, 85)
         .encode_image(&rgb)
         .map_err(|e| e.to_string())?;
-    Ok(())
+    Ok(out)
+}
+
+/// Converte, reduz e grava a foto escolhida com o nome indicado.
+pub fn import_photo(bytes: &[u8], dir: &Path, name: &str) -> Result<(), String> {
+    let jpeg = encode_photo(bytes)?;
+    storage::write_photo(dir, name, &jpeg)
 }
 
 #[cfg(test)]

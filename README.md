@@ -2,8 +2,12 @@
 
 # Meus Gastos
 
-App de controle de gastos mensais para **Android e computador** (Windows/Linux/macOS),
-escrito em **Rust** com UI em **Slint**, com sincronização opcional pelo **Google Drive**.
+App de controle de gastos mensais para **Android, computador** (Windows/Linux/macOS) **e web**
+(inclusive **iPhone/iPad**), escrito em **Rust** com UI em **Slint**, com sincronização opcional
+pelo **Google Drive**.
+
+**Versão web:** <https://pedrohszuqui.github.io/meusgastos/app/> — no iPhone, abra no Safari e use
+*Compartilhar → Adicionar à Tela de Início*.
 
 > O GPUI (framework do Zed) não tem suporte a Android, por isso a UI usa o Slint,
 > que roda nativamente no Android e no computador com o mesmo código e o mesmo visual.
@@ -56,6 +60,22 @@ cargo build --release --bin gastos-desktop
 
 O executável fica em `target/release/gastos-desktop.exe` (um único arquivo, sem instalação).
 Os dados ficam em `%APPDATA%\MeusGastos` (ou na pasta definida por `GASTOS_DATA_DIR`).
+
+## Versão web (iPhone, iPad e navegadores)
+
+O mesmo código compilado para WebAssembly (`wasm32-unknown-unknown`), com o mesmo visual e a mesma
+sincronização. Os dados ficam no `localStorage` e as fotos no IndexedDB do navegador; o login com o
+Google é feito por redirecionamento (cliente OAuth "Aplicativo da Web", `oauth/web.json`).
+É um PWA: dá para adicionar à Tela de Início e usar sem internet.
+
+```powershell
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.130
+.uild-web.ps1          # gera docs/app/pkg
+python -m http.server 8765 --directory docs   # teste: http://localhost:8765/app/
+```
+
+Hospedagem gratuita (GitHub Pages, Cloudflare Pages ou Netlify): veja a seção 5.1 do [PUBLICAR.md](PUBLICAR.md).
 
 ## Sincronização com o Google Drive
 

@@ -280,15 +280,14 @@ pub fn cancel_picker() {
 }
 
 /// Copia a foto escolhida para a pasta privada do app (reduzida e rotacionada).
-pub fn import_selected(w: Weak<AppWindow>, index: usize, dest: PathBuf) {
+pub fn import_selected(w: Weak<AppWindow>, index: usize, dir: PathBuf, name: String) {
     let Some(uri) = URIS.lock().unwrap().get(index).cloned() else { return };
     match w.upgrade() {
         Some(ui) if !ui.get_busy() => ui.set_busy(true),
         _ => return,
     }
     std::thread::spawn(move || {
-        let result = with_env(|env, act| read_uri(env, act, &uri)).and_then(|bytes| model::import_photo(&bytes, &dest));
-        let name = dest.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default();
+        let result = with_env(|env, act| read_uri(env, act, &uri)).and_then(|bytes| model::import_photo(&bytes, &dir, &name));
         let _ = w.upgrade_in_event_loop(move |ui| match result {
             Ok(()) => {
                 cancel_picker();

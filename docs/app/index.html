@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <title>Meus Gastos</title>
+  <meta name="description" content="Controle de gastos mensais por categoria, com fotos e sincronização no Google Drive.">
+  <meta name="theme-color" content="#f2f5f1">
+  <!-- iPhone/iPad: abre como app (sem barra do Safari) quando adicionado à Tela de Início -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Meus Gastos">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="../favicon.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <style>
+    html, body {
+      margin: 0; height: 100%; overflow: hidden;
+      background: #f2f5f1; color: #1d241d;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overscroll-behavior: none; touch-action: none;
+      -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    }
+    /* Área útil: respeita o entalhe e a barra de gestos do iPhone */
+    #area {
+      position: fixed;
+      top: env(safe-area-inset-top); right: env(safe-area-inset-right);
+      bottom: env(safe-area-inset-bottom); left: env(safe-area-inset-left);
+    }
+    #canvas { width: 100%; height: 100%; display: block; outline: none; }
+    #splash {
+      position: fixed; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 14px; background: #f2f5f1;
+    }
+    #splash img { width: 96px; height: 96px; border-radius: 22px; box-shadow: 0 4px 16px #0002; }
+    #splash p { margin: 0; color: #6d776d; font-size: 15px; text-align: center; padding: 0 24px; }
+    #splash.erro p { color: #b3261e; }
+  </style>
+</head>
+<body>
+  <div id="area"><canvas id="canvas"></canvas></div>
+  <div id="splash"><img src="icons/icon-192.png" alt=""><p id="msg">Carregando…</p></div>
+  <script type="module">
+    import init, { prepare, start } from "./pkg/gastos.js";
+
+    const splash = document.getElementById("splash");
+    const msg = document.getElementById("msg");
+    function erro(texto) { splash.classList.add("erro"); msg.textContent = texto; }
+
+    async function main() {
+      if (!document.createElement("canvas").getContext("webgl")) {
+        erro("Este navegador não suporta WebGL, necessário para o app.");
+        return;
+      }
+      await init();
+      await prepare();
+      try {
+        start();
+      } catch (e) {
+        // O laço de eventos do navegador "lança" esta exceção de propósito; não é erro.
+        if (!String(e).includes("control flow")) throw e;
+      }
+      splash.remove();
+    }
+    main().catch((e) => { console.error(e); erro("Não foi possível abrir o app: " + e); });
+
+    // Funciona offline depois da primeira visita
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+  </script>
+</body>
+</html>

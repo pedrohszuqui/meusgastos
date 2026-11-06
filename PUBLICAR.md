@@ -28,6 +28,7 @@ O app aceita **vários clientes OAuth do Google**, um arquivo JSON para cada um,
 | `oauth/computador.json` | **App para computador** | login direto no Windows/Linux/macOS | sim, para o login sem código no PC |
 | `oauth/android.json` | **App para computador** (um segundo, só do celular) | login direto no Android | não: sem ele, o Android usa o `computador.json` |
 | `oauth/tv.json` | **TVs e dispositivos de entrada limitada** | botão "Entrar com código" (alternativa) | não, mas recomendado como plano B |
+| `oauth/web.json` | **Aplicativo da Web** | sincronização na versão web (iPhone/iPad e navegadores) | só para a versão web sincronizar |
 
 > Por que o cliente do Android também é do tipo "App para computador"? O tipo **"Android"**
 > do Console só funciona com o login nativo do Google Play Services, que exige código
@@ -49,6 +50,16 @@ O app mostra os botões conforme o que estiver configurado:
 - os dois: **Conectar com Google** + **Entrar com código**.
 
 Cada login lembra com qual cliente foi feito e é renovado com ele.
+
+**Cliente da versão web** (`oauth/web.json`): ao criar o cliente do tipo **Aplicativo da Web**, preencha:
+- **Origens JavaScript autorizadas:** `https://pedrohszuqui.github.io`
+- **URIs de redirecionamento autorizados:** `https://pedrohszuqui.github.io/meusgastos/app/`
+  (com a barra no final; para testar no PC, adicione também `http://localhost:8765` nas origens
+  e `http://localhost:8765/app/` nos redirecionamentos).
+
+Se hospedar em outro endereço (veja a seção 5.1), use esse endereço nos dois campos.
+A versão web só usa o **ID do cliente** (que é público por natureza: aparece no endereço de login);
+o segredo do JSON não é incluído no site.
 
 > Os arquivos de `oauth/` estão no `.gitignore`: não os publique. Para apps instalados o
 > Google não trata o "client secret" como segredo de verdade, mas não há motivo para espalhá-lo.
@@ -151,6 +162,47 @@ As credenciais da pasta `oauth/` são embutidas automaticamente: o APK leva `and
    **Mais informações → Executar assim mesmo** (o app não tem assinatura de código paga).
 3. Não precisa instalar. Os dados ficam em `%APPDATA%\MeusGastos`.
 
+## 5.1 Versão web (iPhone, iPad e qualquer navegador) — hospedagem gratuita
+
+A versão web é o **mesmo app** (mesmo código Rust/Slint, compilado para WebAssembly), com o mesmo
+visual, as mesmas funções e a mesma sincronização pela pasta "Meus Gastos" do Google Drive:
+um gasto lançado no iPhone aparece no Android e no computador, e vice-versa.
+
+**Gerar** (depois de salvar `oauth/web.json`):
+
+```powershell
+rustup target add wasm32-unknown-unknown        # uma vez
+cargo install wasm-bindgen-cli --version 0.2.130 # uma vez
+.uild-web.ps1                                  # gera docs/app/pkg
+```
+
+**Hospedar de graça — GitHub Pages (recomendado, já configurado):** o site do projeto já é
+publicado da pasta `docs/` do repositório. Basta fazer commit e push de `docs/app/` e o app fica em
+<https://pedrohszuqui.github.io/meusgastos/app/> (HTTPS incluso, sem servidor, sem custo).
+
+Alternativas gratuitas (é só um site estático: envie a pasta `docs/app` inteira):
+- **Cloudflare Pages:** *Workers & Pages → Create → Pages → Upload assets*, envie `docs/app`.
+  Endereço `https://<nome>.pages.dev/`.
+- **Netlify:** <https://app.netlify.com/drop>, arraste a pasta `docs/app`. Endereço `https://<nome>.netlify.app/`.
+
+Em qualquer uma delas, cadastre o novo endereço no cliente OAuth web (origem + redirecionamento)
+e adicione o domínio em **Google Auth Platform → Branding → Domínios autorizados**.
+
+**Instalar no iPhone/iPad** (para enviar aos amigos):
+1. Abra o endereço do app no **Safari**.
+2. Toque em **Compartilhar** (quadrado com seta) → **Adicionar à Tela de Início** → **Adicionar**.
+3. Abra pelo ícone "Meus Gastos": ele roda em tela cheia, como um app, e funciona sem internet
+   depois da primeira abertura.
+
+**Diferenças da versão web**
+- Os dados ficam no armazenamento do navegador. **Conecte o Google Drive** para ter cópia na nuvem:
+  o iOS pode apagar dados de sites que ficam muitas semanas sem ser abertos, e apagar
+  "Dados de sites" no Safari também os remove.
+- Sem servidor, o Google dá à versão web um acesso de cerca de **1 hora** por login. Depois disso
+  o app pede para tocar em **Conectar com Google** de novo (é rápido: não pede o consentimento
+  outra vez). Nada se perde: o que foi lançado nesse meio-tempo é enviado na próxima conexão.
+- Foto: o botão abre o seletor do iPhone (câmera, fototeca ou arquivos).
+
 ## 6. Primeiro uso (para enviar junto aos amigos)
 
 1. Abra o app e toque no **ícone de nuvem** (no computador: **Sincronizar**, na barra lateral).
@@ -175,6 +227,8 @@ Desconectar não apaga nada: os dados continuam no aparelho e na pasta do Drive.
 1. Aumente `version` em `Cargo.toml`.
 2. Gere de novo (passo 4) **com a mesma chave**.
 3. Envie o novo APK/EXE. No Android, instalar por cima mantém os dados e o login.
+4. Versão web: rode `.uild-web.ps1` e faça push de `docs/app`. Quem usa o app web recebe a
+   atualização sozinho ao abrir com internet.
 
 ## 8. Limitações e riscos (leia antes de distribuir)
 
