@@ -2,3 +2,4 @@
 /keystore
 /google-oauth.json
 /oauth/*.json
+/flatpak/cargo-sources.json

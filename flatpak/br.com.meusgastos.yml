@@ -1,6 +1,8 @@
 # Flatpak do Meus Gastos (versão para computador, Linux).
 # Gerado pelo GitHub Actions (.github/workflows/flatpak.yml); para gerar localmente num Linux:
 #   flatpak install flathub org.freedesktop.Sdk//25.08 org.freedesktop.Sdk.Extension.rust-stable//25.08
+#   python3 flatpak-cargo-generator.py Cargo.lock -o flatpak/cargo-sources.json
+#     (script de https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo)
 #   flatpak-builder --user --install --force-clean build-dir flatpak/br.com.meusgastos.yml
 id: br.com.meusgastos
 runtime: org.freedesktop.Platform
@@ -19,16 +21,14 @@ finish-args:
 build-options:
   append-path: /usr/lib/sdk/rust-stable/bin
   env:
+    # cargo-sources.json grava aqui o vendor das dependências e o config que aponta para ele.
     CARGO_HOME: /run/build/meusgastos/cargo
-    CARGO_NET_GIT_FETCH_WITH_CLI: 'true'
-  # Baixa as dependências do crates.io durante o build (fora do Flathub isso é permitido).
-  build-args:
-    - --share=network
 modules:
   - name: meusgastos
     buildsystem: simple
     build-commands:
-      - cargo build --release --locked --bin gastos-desktop
+      # Sem rede: as crates vêm de cargo-sources.json (baixadas e guardadas no cache do flatpak-builder).
+      - cargo --offline build --release --locked --bin gastos-desktop
       - install -Dm755 target/release/gastos-desktop /app/bin/gastos-desktop
       - install -Dm644 flatpak/br.com.meusgastos.desktop /app/share/applications/br.com.meusgastos.desktop
       - install -Dm644 flatpak/br.com.meusgastos.metainfo.xml /app/share/metainfo/br.com.meusgastos.metainfo.xml
@@ -38,8 +38,17 @@ modules:
     sources:
       - type: dir
         path: ..
+        # Só o necessário para compilar o app de computador (nada de site, Android, git ou chave de assinatura).
         skip:
           - target
           - build-dir
           - .flatpak-builder
+          - .git
+          - .github
+          - .claude
+          - docs
+          - res
           - keystore
+          - build-web.ps1
+          - flatpak/cargo-sources.json
+      - cargo-sources.json

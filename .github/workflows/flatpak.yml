@@ -38,12 +38,28 @@ jobs:
           mkdir -p oauth
           printf '%s' "$COMPUTADOR" > oauth/computador.json
           printf '%s' "$TV" > oauth/tv.json
-          for f in oauth/computador.json oauth/tv.json; do
-            grep -q '"client_id"' "$f" || { echo "::error::$f não parece um JSON de cliente OAuth do Google."; exit 1; }
-          done
-          echo "Clientes OAuth prontos."
+          # O conteúdo (tipo do cliente, client_id) é validado pelo build.rs durante a compilação.
 
-      - uses: flathub-infra/flatpak-github-actions/flatpak-builder@master
+      - name: Versão no metainfo
+        # Garante que a versão do Cargo.toml aparece nas releases do AppStream (lojas de apps do Linux).
+        run: |
+          VERSAO=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -n1)
+          META=flatpak/br.com.meusgastos.metainfo.xml
+          if ! grep -q "<release version=\"$VERSAO\"" "$META"; then
+            sed -i "s|<releases>|<releases>\n    <release version=\"$VERSAO\" date=\"$(date -u +%F)\"/>|" "$META"
+            echo "::warning::Release $VERSAO adicionada ao metainfo só neste build; registre-a em $META."
+          fi
+
+      - name: Dependências Rust (cargo-sources.json)
+        # Lista as crates do Cargo.lock como fontes do Flatpak: baixadas uma vez e reaproveitadas pelo cache.
+        run: |
+          dnf install -y python3-aiohttp python3-tomlkit python3-pyyaml
+          curl -sSfL -o /tmp/flatpak-cargo-generator.py \
+            https://raw.githubusercontent.com/flatpak/flatpak-builder-tools/9d86d336a39b9af38b86f114b6ce5820fe260f91/cargo/flatpak-cargo-generator.py
+          python3 /tmp/flatpak-cargo-generator.py Cargo.lock -o flatpak/cargo-sources.json
+
+      # Fixado num commit (não em @master): o job tem permissão de escrita e os clientes OAuth no disco.
+      - uses: flathub-infra/flatpak-github-actions/flatpak-builder@933e9e8ca36e85046ebca8e211f0785c6becac40
         with:
           bundle: MeusGastos-linux.flatpak
           manifest-path: flatpak/br.com.meusgastos.yml

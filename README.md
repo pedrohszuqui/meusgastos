@@ -75,7 +75,14 @@ flatpak install --user MeusGastos-linux.flatpak
 flatpak run br.com.meusgastos
 ```
 
-Os dados ficam em `~/.var/app/br.com.meusgastos/data/MeusGastos`. Para gerar num Linux, sem o CI:
+Os dados ficam em `~/.var/app/br.com.meusgastos/data/MeusGastos`. Para gerar num Linux, sem o CI,
+primeiro liste as dependências Rust com o
+[flatpak-cargo-generator](https://github.com/flatpak/flatpak-builder-tools/tree/master/cargo)
+(o build do Flatpak roda sem rede):
+
+```bash
+python3 flatpak-cargo-generator.py Cargo.lock -o flatpak/cargo-sources.json
+```
 
 ```bash
 flatpak-builder --user --install --force-clean build-dir flatpak/br.com.meusgastos.yml
