@@ -83,6 +83,19 @@ Menu **Google Auth Platform** (nas versões antigas: **APIs e serviços → Tela
    - Se preferir manter "Em teste", adicione o e-mail de cada amigo em **Público → Usuários de teste**
      e avise que vai precisar reconectar toda semana.
 
+## 2.1 Página inicial e política de privacidade (GitHub Pages)
+
+Para publicar como app **Externo em produção**, o Google exige uma página inicial que descreva o
+app e tenha link para a política de privacidade, ambas num domínio autorizado. Elas estão na
+pasta `docs/` e são publicadas pelo GitHub Pages:
+
+| Campo do Branding no Console | Valor |
+|---|---|
+| Página inicial do aplicativo | `https://pedrohszuqui.github.io/meusgastos/` |
+| Link da Política de Privacidade | `https://pedrohszuqui.github.io/meusgastos/privacidade.html` |
+| Domínios autorizados | `pedrohszuqui.github.io` |
+
+Depois de salvar o Branding, volte em **Público → Publicar app**.
 ## 3. Criar a sua chave de assinatura do Android (uma vez)
 
 O APK de teste usa uma chave com senha fraca (`android`). Para distribuir, crie a sua
