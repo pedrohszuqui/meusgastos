@@ -20,6 +20,15 @@ fn main() {
 
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
 
+    // Ícone do programa no Windows (Explorer, atalhos e barra de tarefas).
+    if target_os == "windows" {
+        println!("cargo:rerun-if-changed=assets/app.rc");
+        println!("cargo:rerun-if-changed=assets/icone.ico");
+        embed_resource::compile("assets/app.rc", embed_resource::NONE)
+            .manifest_optional()
+            .expect("falha ao embutir o ícone do Windows");
+    }
+
     let computador = load("COMPUTADOR", "oauth/computador.json");
     let android = load("ANDROID", "oauth/android.json");
     let tv = load("TV", "oauth/tv.json").or_else(|| load("", "google-oauth.json"));

@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo-completo.jpg" alt="Meus Gastos — controle seu dinheiro" width="420"></p>
+
 # Meus Gastos
 
 App de controle de gastos mensais para **Android e computador** (Windows/Linux/macOS),

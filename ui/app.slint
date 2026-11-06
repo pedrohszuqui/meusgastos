@@ -547,6 +547,7 @@ component TabItem inherits TouchArea {
 
 export component AppWindow inherits Window {
     title: "Meus Gastos";
+    icon: @image-url("logo.png");
     preferred-width: 400px;
     preferred-height: 820px;
     background: Theme.bg;
@@ -770,14 +771,16 @@ export component AppWindow inherits Window {
                         spacing: 10px;
                         padding-bottom: 18px;
                         Rectangle {
-                            width: 40px;
-                            height: 40px;
+                            width: 44px;
+                            height: 44px;
                             border-radius: 12px;
-                            background: Theme.header;
-                            Icon {
-                                commands: Icons.pie;
-                                width: 22px;
-                                height: 22px;
+                            background: white;
+                            drop-shadow-blur: 6px;
+                            drop-shadow-color: #00000022;
+                            Image {
+                                width: 36px;
+                                height: 36px;
+                                source: @image-url("logo.png");
                             }
                         }
                         Text {
@@ -861,7 +864,21 @@ export component AppWindow inherits Window {
                             padding-bottom: 20px;
                             spacing: 10px;
                             HorizontalLayout {
-                                spacing: 8px;
+                                spacing: 10px;
+                                if !root.wide: VerticalLayout {
+                                    alignment: center;
+                                    Rectangle {
+                                        width: 38px;
+                                        height: 38px;
+                                        border-radius: 11px;
+                                        background: white;
+                                        Image {
+                                            width: 31px;
+                                            height: 31px;
+                                            source: @image-url("logo.png");
+                                        }
+                                    }
+                                }
                                 Text {
                                     text: root.wide ? "Visão geral" : "Meus Gastos";
                                     color: white;

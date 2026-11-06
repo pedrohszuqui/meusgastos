@@ -36,6 +36,8 @@ rfd = "0.15"
 
 [build-dependencies]
 slint-build = "1.18"
+# Ícone do .exe no Windows
+embed-resource = "3"
 serde_json = "1"
 
 [profile.release]
@@ -47,6 +49,8 @@ strip = true
 [package.metadata.android]
 package = "br.com.meusgastos"
 build_targets = ["aarch64-linux-android", "x86_64-linux-android"]
+# Ícone do app (res/mipmap-*/ic_launcher.png, gerado a partir de assets/logo-completo.jpg)
+resources = "res"
 
 # Assinatura do APK de release: defina CARGO_APK_RELEASE_KEYSTORE e
 # CARGO_APK_RELEASE_KEYSTORE_PASSWORD (veja PUBLICAR.md). Nada de senha neste arquivo.
@@ -57,6 +61,7 @@ target_sdk_version = 35
 
 [package.metadata.android.application]
 label = "Meus Gastos"
+icon = "@mipmap/ic_launcher"
 
 [package.metadata.android.application.activity]
 config_changes = "orientation|screenSize|screenLayout|keyboardHidden|keyboard"
