@@ -1,0 +1,2778 @@
+import { ScrollView, Palette } from "std-widgets.slint";
+
+// ======================================================================
+// Estruturas de dados (preenchidas pelo Rust)
+// ======================================================================
+
+export struct ExpenseItem {
+    id: string,
+    description: string,
+    category: string,
+    initial: string,
+    amount: string,
+    date: string,
+    has-photo: bool,
+    color: color,
+    is-header: bool,
+    header-total: string,
+    is-income: bool,
+    // Gasto planejado (pagamento a confirmar) e se já venceu
+    planned: bool,
+    overdue: bool,
+}
+
+export struct Slice {
+    name: string,
+    value: string,
+    percent: string,
+    fraction: float,
+    color: color,
+    path: string,
+    selected: bool,
+}
+
+export struct MonthBar {
+    label: string,
+    value: string,
+    fraction: float,
+    income-fraction: float,
+    planned-fraction: float,
+    selected: bool,
+    offset: int,
+}
+
+export struct DayBar {
+    day: int,
+    fraction: float,
+}
+
+export struct CategoryRow {
+    name: string,
+    total: string,
+    info: string,
+    color: color,
+    fraction: float,
+}
+
+export struct CatChip {
+    name: string,
+    color: color,
+}
+
+export struct Stat {
+    label: string,
+    value: string,
+}
+
+export struct Thumb {
+    image: image,
+}
+
+// ======================================================================
+// Tema e ícones
+// ======================================================================
+
+global Theme {
+    out property <color> primary: #1b5e20;
+    out property <color> primary2: #2e7d32;
+    out property <color> light: #e3f1e4;
+    out property <color> bg: #f2f5f1;
+    out property <color> card: #ffffff;
+    out property <color> text: #1d241d;
+    out property <color> muted: #6d776d;
+    out property <color> border: #dfe5de;
+    out property <color> danger: #d32f2f;
+    out property <color> highlight: #ff8f00;
+    out property <brush> header: @linear-gradient(160deg, #1b5e20 0%, #2e7d32 70%, #388e3c 100%);
+    out property <color> income: #1565c0;
+    out property <color> income-dark: #0d47a1;
+    out property <color> income-light: #bbdefb;
+    out property <brush> income-header: @linear-gradient(160deg, #0d47a1 0%, #1565c0 70%, #1e88e5 100%);
+}
+
+global Icons {
+    out property <string> back: "M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z";
+    out property <string> left: "M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z";
+    out property <string> right: "M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z";
+    out property <string> plus: "M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z";
+    out property <string> pie: "M11 2v20c-5.07-.5-9-4.79-9-10s3.93-9.5 9-10zm2.03 0v8.99H22c-.47-4.74-4.24-8.52-8.97-8.99zm0 11.01V22c4.74-.47 8.5-4.25 8.97-8.99h-8.97z";
+    out property <string> list: "M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z";
+    out property <string> grid: "M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z";
+    out property <string> photo: "M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z";
+    out property <string> trash: "M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z";
+    out property <string> bell: "M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z";
+    out property <string> up: "M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z";
+    out property <string> down: "M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z";
+    out property <string> cloud: "M19.35 10.04A7.49 7.49 0 0 0 12 4C9.11 4 6.6 5.64 5.35 8.04A5.994 5.994 0 0 0 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z";
+    out property <string> refresh: "M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z";
+}
+
+// ======================================================================
+// Componentes
+// ======================================================================
+
+component Icon inherits Path {
+    width: 24px;
+    height: 24px;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    fill: white;
+}
+
+component IconButton inherits TouchArea {
+    in property <string> icon;
+    in property <color> tint: white;
+    in property <length> size: 26px;
+    width: 48px;
+    height: 48px;
+    Rectangle {
+        width: 40px;
+        height: 40px;
+        border-radius: 20px;
+        background: root.pressed ? #ffffff30 : transparent;
+    }
+    Icon {
+        width: root.size;
+        height: root.size;
+        commands: root.icon;
+        fill: root.tint;
+    }
+}
+
+component Card inherits Rectangle {
+    background: Theme.card;
+    border-radius: 18px;
+    drop-shadow-blur: 12px;
+    drop-shadow-offset-y: 3px;
+    drop-shadow-color: #00000014;
+}
+
+component CardTitle inherits Text {
+    font-size: 17px;
+    font-weight: 700;
+    color: Theme.text;
+    vertical-alignment: center;
+}
+
+component FieldLabel inherits Text {
+    color: Theme.muted;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+// kind: 0 = principal, 1 = secundário, 2 = perigo (claro), 3 = perigo (forte), 4 = receita (azul)
+component Btn inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in property <int> kind: 0;
+    callback clicked();
+    height: 52px;
+    border-radius: 26px;
+    background: !root.enabled ? #cfd6ce
+        : root.kind == 0 ? (ta.pressed ? Theme.primary : Theme.primary2)
+        : root.kind == 1 ? (ta.pressed ? #cfe5d1 : Theme.light)
+        : root.kind == 3 ? (ta.pressed ? #b71c1c : Theme.danger)
+        : root.kind == 4 ? (ta.pressed ? Theme.income-dark : Theme.income)
+        : (ta.pressed ? #f9dcdc : #fdeeee);
+    Text {
+        width: parent.width;
+        height: parent.height;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        text: root.text;
+        font-size: 16px;
+        font-weight: 600;
+        color: !root.enabled || root.kind == 0 || root.kind == 3 || root.kind == 4 ? white
+            : root.kind == 1 ? Theme.primary : Theme.danger;
+    }
+    ta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+}
+
+component PillButton inherits Rectangle {
+    in property <string> text;
+    callback clicked();
+    height: 40px;
+    min-width: t.preferred-width + 32px;
+    border-radius: 20px;
+    background: ta.pressed ? #000000cc : #00000099;
+    t := Text {
+        width: parent.width;
+        height: parent.height;
+        text: root.text;
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    ta := TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+component TextField inherits Rectangle {
+    in property <string> placeholder;
+    in-out property <string> text <=> input.text;
+    callback accepted();
+    height: 52px;
+    border-radius: 14px;
+    background: white;
+    border-width: input.has-focus ? 2px : 1px;
+    border-color: input.has-focus ? Theme.primary2 : Theme.border;
+    if root.text == "": Text {
+        x: 16px;
+        width: parent.width - 32px;
+        height: parent.height;
+        vertical-alignment: center;
+        text: root.placeholder;
+        color: #9aa39a;
+        font-size: 16px;
+    }
+    input := TextInput {
+        x: 16px;
+        width: parent.width - 32px;
+        height: parent.height;
+        vertical-alignment: center;
+        font-size: 16px;
+        color: Theme.text;
+        single-line: true;
+        accepted => { root.accepted(); }
+    }
+}
+
+component Chip inherits Rectangle {
+    in property <string> label;
+    in property <color> dot: Theme.primary2;
+    in property <bool> selected;
+    in property <bool> show-dot: true;
+    callback clicked();
+    height: 40px;
+    border-radius: 20px;
+    background: root.selected ? root.dot.transparentize(0.82) : white;
+    border-width: root.selected ? 2px : 1px;
+    border-color: root.selected ? root.dot : Theme.border;
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 8px;
+        alignment: center;
+        if root.show-dot: VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 10px;
+                height: 10px;
+                border-radius: 5px;
+                background: root.dot;
+            }
+        }
+        Text {
+            text: root.label;
+            vertical-alignment: center;
+            font-size: 14px;
+            font-weight: root.selected ? 700 : 400;
+            color: Theme.text;
+            overflow: elide;
+        }
+    }
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+component MonthSelector inherits Rectangle {
+    in property <string> label;
+    callback prev();
+    callback next();
+    height: 44px;
+    border-radius: 22px;
+    background: #ffffff24;
+    HorizontalLayout {
+        IconButton {
+            icon: Icons.left;
+            height: 44px;
+            clicked => { root.prev(); }
+        }
+        Text {
+            text: root.label;
+            horizontal-stretch: 1;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+        }
+        IconButton {
+            icon: Icons.right;
+            height: 44px;
+            clicked => { root.next(); }
+        }
+    }
+}
+
+component SimpleHeader inherits Rectangle {
+    in property <string> title;
+    callback back();
+    height: 56px;
+    background: Theme.primary;
+    HorizontalLayout {
+        padding-left: 4px;
+        padding-right: 8px;
+        spacing: 4px;
+        IconButton {
+            icon: Icons.back;
+            clicked => { root.back(); }
+        }
+        Text {
+            text: root.title;
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        @children
+    }
+}
+
+component ExpenseRow inherits TouchArea {
+    in property <ExpenseItem> item;
+    height: 72px;
+    Rectangle {
+        background: root.pressed ? #eef3ed : white;
+        border-radius: 14px;
+    }
+    HorizontalLayout {
+        padding: 12px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 44px;
+                height: 44px;
+                border-radius: 22px;
+                background: root.item.color.transparentize(0.82);
+                Text {
+                    width: parent.width;
+                    height: parent.height;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                    text: root.item.initial;
+                    color: root.item.color;
+                    font-size: 18px;
+                    font-weight: 800;
+                }
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 3px;
+            Text {
+                text: root.item.description;
+                font-size: 16px;
+                font-weight: 600;
+                color: Theme.text;
+                overflow: elide;
+            }
+            Text {
+                text: root.item.category + "  ·  " + root.item.date;
+                font-size: 13px;
+                color: Theme.muted;
+                overflow: elide;
+            }
+        }
+        if root.item.has-photo: VerticalLayout {
+            alignment: center;
+            Icon {
+                commands: Icons.photo;
+                fill: #9aa39a;
+                width: 18px;
+                height: 18px;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+            Text {
+                text: root.item.amount;
+                font-size: 16px;
+                font-weight: 700;
+                color: root.item.is-income ? Theme.income : root.item.planned ? Theme.muted : Theme.text;
+                horizontal-alignment: right;
+            }
+            if root.item.planned: HorizontalLayout {
+                alignment: end;
+                Rectangle {
+                    border-radius: 8px;
+                    background: root.item.overdue ? #fdecea : #fff3e0;
+                    HorizontalLayout {
+                        padding-left: 8px;
+                        padding-right: 8px;
+                        padding-top: 2px;
+                        padding-bottom: 2px;
+                        Text {
+                            text: root.item.overdue ? "Vencido" : "Planejado";
+                            font-size: 11px;
+                            font-weight: 700;
+                            color: root.item.overdue ? Theme.danger : #b45f06;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Seletor de duas opções (ex.: Despesa | Receita) sobre fundo colorido
+component Segmented inherits Rectangle {
+    in property <string> left;
+    in property <string> right;
+    in-out property <int> index;
+    callback changed(int);
+    height: 42px;
+    border-radius: 21px;
+    background: #00000026;
+    HorizontalLayout {
+        padding: 3px;
+        for lbl[i] in [root.left, root.right]: TouchArea {
+            clicked => {
+                root.index = i;
+                root.changed(i);
+            }
+            Rectangle {
+                border-radius: 18px;
+                background: root.index == i ? white : transparent;
+                animate background { duration: 150ms; }
+            }
+            Text {
+                width: parent.width;
+                height: parent.height;
+                text: lbl;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                font-size: 15px;
+                font-weight: 700;
+                color: root.index == i ? Theme.text : white;
+            }
+        }
+    }
+}
+
+// Item da barra lateral (modo computador)
+component RailItem inherits TouchArea {
+    in property <string> icon;
+    in property <string> label;
+    in property <string> sub;
+    in property <bool> active;
+    height: root.sub != "" ? 58px : 48px;
+    mouse-cursor: pointer;
+    Rectangle {
+        border-radius: 14px;
+        background: root.active ? Theme.light : root.has-hover ? #f1f4f0 : transparent;
+    }
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 10px;
+        spacing: 14px;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                commands: root.icon;
+                fill: root.active ? Theme.primary2 : Theme.muted;
+                width: 22px;
+                height: 22px;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 1px;
+            Text {
+                text: root.label;
+                font-size: 15px;
+                font-weight: root.active ? 700 : 500;
+                color: root.active ? Theme.primary2 : Theme.text;
+                overflow: elide;
+            }
+            if root.sub != "": Text {
+                text: root.sub;
+                font-size: 11px;
+                color: Theme.muted;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+component TabItem inherits TouchArea {
+    in property <string> icon;
+    in property <string> label;
+    in property <bool> active;
+    VerticalLayout {
+        alignment: center;
+        spacing: 3px;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 60px;
+                height: 32px;
+                border-radius: 16px;
+                background: root.active ? Theme.light : transparent;
+                animate background { duration: 150ms; }
+                Icon {
+                    commands: root.icon;
+                    fill: root.active ? Theme.primary2 : Theme.muted;
+                    width: 22px;
+                    height: 22px;
+                }
+            }
+        }
+        Text {
+            text: root.label;
+            horizontal-alignment: center;
+            font-size: 12px;
+            font-weight: root.active ? 700 : 400;
+            color: root.active ? Theme.primary2 : Theme.muted;
+        }
+    }
+}
+
+// ======================================================================
+// Janela principal
+// ======================================================================
+
+export component AppWindow inherits Window {
+    title: "Meus Gastos";
+    preferred-width: 400px;
+    preferred-height: 820px;
+    background: Theme.bg;
+
+    init => {
+        Palette.color-scheme = ColorScheme.light;
+    }
+
+    // Navegação: page 0 = abas, 1 = formulário, 2 = galeria, 3 = foto
+    in-out property <int> page: 0;
+    // Abas: 0 = Painel, 1 = Despesas, 2 = Categorias
+    in-out property <int> tab: 0;
+
+    // ---- Painel ----
+    in property <string> month-label;
+    in property <string> month-total;
+    in property <string> income-total;
+    in property <string> balance;
+    in property <bool> balance-negative;
+    in property <bool> has-income;
+    in property <bool> show-balance;
+    in property <bool> has-carry;
+    in property <bool> carry-negative;
+    in property <string> carry-text;
+    in property <float> spent-ratio;
+    in property <string> spent-text;
+    // Gastos planejados do mês e lembrete de pagamentos a confirmar
+    in property <string> planned-text;
+    in property <[ExpenseItem]> due-items;
+    in property <int> due-count;
+    in property <string> due-total;
+    in property <string> compare-text;
+    in property <bool> compare-up;
+    in property <[Stat]> stats;
+    in property <bool> has-data;
+    in property <[Slice]> slices;
+    in property <string> selected-slice;
+    in property <string> donut-title;
+    in property <string> donut-value;
+    in property <string> donut-sub;
+    in property <[MonthBar]> month-bars;
+    in property <string> months-info;
+    in property <[DayBar]> day-bars;
+    in property <int> selected-day;
+    in property <string> day-info;
+    in property <int> days-in-month: 30;
+    in property <[ExpenseItem]> top-expenses;
+
+    // ---- Despesas ----
+    in property <[ExpenseItem]> expenses;
+    in property <string> filter-category;
+    in property <string> filter-total;
+    in property <[CatChip]> chips;
+    in property <[ExpenseItem]> incomes;
+    // Extrato: 0 = despesas, 1 = receitas
+    in-out property <int> list-mode: 0;
+
+    // ---- Categorias ----
+    in property <[CategoryRow]> category-rows;
+    in-out property <string> category-error;
+    in-out property <string> confirm-remove;
+
+    // ---- Formulário ----
+    // 0 = despesa, 1 = receita
+    in-out property <int> form-kind: 0;
+    in-out property <int> editing-id: -1;
+    in-out property <string> form-description;
+    in-out property <string> form-amount;
+    in-out property <int> form-category-index: 0;
+    in-out property <string> form-date;
+    in-out property <image> form-photo;
+    in-out property <bool> form-has-photo;
+    in-out property <string> form-error;
+    in-out property <bool> confirm-delete;
+    // Parcelamento (nova despesa) e gasto planejado (edição)
+    in-out property <bool> form-parcelado;
+    in-out property <int> form-parcels: 2;
+    in-out property <bool> form-total-mode: true;
+    in property <string> form-plan-preview;
+    in property <bool> form-planned;
+    in property <bool> form-in-group;
+    in property <string> form-parcel-label;
+    in-out property <bool> form-confirm;
+    property <bool> confirm-future;
+
+    // ---- Galeria / foto ----
+    in-out property <[Thumb]> picker-items;
+    in-out property <string> picker-status;
+    in-out property <bool> busy;
+    in-out property <image> viewer-image;
+
+    // ---- Sincronização (Google Drive) ----
+    in property <bool> sync-configured;
+    in property <bool> sync-connected;
+    in property <bool> sync-busy;
+    // 0 = nenhum login em andamento, 1 = no navegador (direto), 2 = por código
+    in property <int> sync-pending;
+    in property <bool> sync-has-direct;
+    in property <bool> sync-has-code;
+    in property <string> sync-code;
+    in property <string> sync-url;
+    in property <string> sync-status;
+    in property <string> sync-error;
+
+    // Layout de computador (janela larga): barra lateral e cards lado a lado.
+    property <bool> wide: root.width >= 900px;
+    // Margem lateral das listas: no computador o conteúdo fica centralizado (máx. ~900px).
+    property <length> side-pad: root.wide ? max(24px, (root.width - 240px - 900px) / 2) : 14px;
+
+    callback prev-month();
+    callback next-month();
+    callback select-month-offset(int);
+    callback donut-tap(float, float);
+    callback select-slice(string);
+    callback select-day(int);
+    callback set-filter(string);
+    callback new-expense();
+    callback new-income();
+    callback edit-expense(string);
+    callback save-expense();
+    callback delete-expense();
+    callback delete-future();
+    callback confirm-payment(string);
+    callback update-preview();
+    callback cancel-form();
+    callback set-date-offset(int);
+    callback pick-photo();
+    callback remove-photo();
+    callback view-photo();
+    callback picker-select(int);
+    callback picker-refresh();
+    callback close-picker();
+    callback photo-imported(string);
+    callback photo-failed(string);
+    callback add-category(string);
+    callback remove-category(string);
+    callback sync-connect();
+    callback sync-connect-code();
+    callback sync-cancel();
+    callback sync-now();
+    callback sync-disconnect();
+    callback open-url(string);
+
+    forward-focus: back-handler;
+    changed page => {
+        back-handler.focus();
+        root.confirm-future = false;
+    }
+    // Prévia do parcelamento / aviso de gasto planejado
+    changed form-amount => { root.update-preview(); }
+    changed form-date => { root.update-preview(); }
+    changed form-parcelado => { root.update-preview(); }
+    changed form-parcels => { root.update-preview(); }
+    changed form-total-mode => { root.update-preview(); }
+    changed form-kind => { root.update-preview(); }
+
+    // Trata o botão "voltar" do Android: volta uma tela em vez de fechar o app.
+    back-handler := FocusScope {
+        width: 100%;
+        height: 100%;
+        key-pressed(event) => {
+            if (event.text == Key.Back) {
+                if (root.page == 3) {
+                    root.page = 1;
+                    return accept;
+                }
+                if (root.page == 4) {
+                    root.page = 0;
+                    return accept;
+                }
+                if (root.page == 2) {
+                    root.close-picker();
+                    return accept;
+                }
+                if (root.page == 1) {
+                    root.cancel-form();
+                    return accept;
+                }
+                if (root.tab != 0) {
+                    root.tab = 0;
+                    return accept;
+                }
+            }
+            return reject;
+        }
+
+    // Faixas atrás das barras do sistema (status e navegação)
+    Rectangle {
+        y: 0;
+        height: root.safe-area-insets.top;
+        background: root.page == 3 ? black
+            : (root.page == 1 && root.form-kind == 1) || (root.page == 0 && root.tab == 1 && root.list-mode == 1) ? Theme.income-dark
+            : Theme.primary;
+    }
+    Rectangle {
+        y: root.height - root.safe-area-insets.bottom;
+        height: root.safe-area-insets.bottom;
+        background: root.page == 3 ? black : root.page == 0 ? white : Theme.bg;
+    }
+
+    // ==================================================================
+    // 0. ABAS
+    // ==================================================================
+    if root.page == 0: Rectangle {
+        y: root.safe-area-insets.top;
+        width: parent.width;
+        height: parent.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+
+        HorizontalLayout {
+            // -------------------- BARRA LATERAL (computador) --------------------
+            if root.wide: Rectangle {
+                width: 240px;
+                background: white;
+                drop-shadow-blur: 14px;
+                drop-shadow-color: #0000001c;
+                VerticalLayout {
+                    padding: 16px;
+                    padding-top: 22px;
+                    spacing: 6px;
+                    HorizontalLayout {
+                        spacing: 10px;
+                        padding-bottom: 18px;
+                        Rectangle {
+                            width: 40px;
+                            height: 40px;
+                            border-radius: 12px;
+                            background: Theme.header;
+                            Icon {
+                                commands: Icons.pie;
+                                width: 22px;
+                                height: 22px;
+                            }
+                        }
+                        Text {
+                            text: "Meus Gastos";
+                            font-size: 19px;
+                            font-weight: 800;
+                            color: Theme.text;
+                            vertical-alignment: center;
+                        }
+                    }
+                    RailItem {
+                        icon: Icons.pie;
+                        label: "Painel";
+                        active: root.tab == 0;
+                        clicked => { root.tab = 0; }
+                    }
+                    RailItem {
+                        icon: Icons.list;
+                        label: "Extrato";
+                        active: root.tab == 1;
+                        clicked => { root.tab = 1; }
+                    }
+                    RailItem {
+                        icon: Icons.grid;
+                        label: "Categorias";
+                        active: root.tab == 2;
+                        clicked => {
+                            root.tab = 2;
+                            root.confirm-remove = "";
+                            root.category-error = "";
+                        }
+                    }
+                    Rectangle { vertical-stretch: 1; }
+                    Btn {
+                        text: "+  Nova despesa";
+                        clicked => { root.new-expense(); }
+                    }
+                    Btn {
+                        text: "+  Nova receita";
+                        kind: 4;
+                        clicked => { root.new-income(); }
+                    }
+                    Rectangle { height: 8px; }
+                    RailItem {
+                        icon: Icons.cloud;
+                        label: root.sync-busy ? "Sincronizando..." : root.sync-connected ? "Google Drive" : "Sincronizar";
+                        sub: root.sync-error != "" ? "Erro na sincronização" : root.sync-status;
+                        clicked => { root.page = 4; }
+                    }
+                }
+            }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            // -------------------- PAINEL --------------------
+            if root.tab == 0: dash := Flickable {
+                vertical-stretch: 1;
+                horizontal-stretch: 1;
+                // Limites fixos: evita que a largura dependa do próprio conteúdo (ciclo de layout).
+                min-width: 0px;
+                preferred-width: 0px;
+                max-width: 100000px;
+                content-height: dashcol.preferred-height;
+
+                dashcol := VerticalLayout {
+                    width: dash.width;
+                    property <length> side: root.wide ? max(24px, (root.width - 240px - 1100px) / 2) : 14px;
+                    spacing: 14px;
+                    padding-bottom: 96px;
+
+                    // Cabeçalho com total
+                    Rectangle {
+                        background: Theme.header;
+                        border-bottom-left-radius: 28px;
+                        border-bottom-right-radius: 28px;
+                        VerticalLayout {
+                            padding: 16px;
+                            padding-left: dashcol.side + 2px;
+                            padding-right: dashcol.side + 2px;
+                            padding-top: root.wide ? 22px : 10px;
+                            padding-bottom: 20px;
+                            spacing: 10px;
+                            HorizontalLayout {
+                                spacing: 8px;
+                                Text {
+                                    text: root.wide ? "Visão geral" : "Meus Gastos";
+                                    color: white;
+                                    font-size: root.wide ? 26px : 22px;
+                                    font-weight: 800;
+                                    vertical-alignment: center;
+                                    horizontal-stretch: 1;
+                                }
+                                if root.wide: MonthSelector {
+                                    width: 380px;
+                                    label: root.month-label;
+                                    prev => { root.prev-month(); }
+                                    next => { root.next-month(); }
+                                }
+                                if !root.wide: IconButton {
+                                    icon: Icons.cloud;
+                                    size: 24px;
+                                    tint: root.sync-error != "" ? #ffcdd2 : white;
+                                    clicked => { root.page = 4; }
+                                }
+                            }
+                            if !root.wide: MonthSelector {
+                                label: root.month-label;
+                                prev => { root.prev-month(); }
+                                next => { root.next-month(); }
+                            }
+                            Text {
+                                text: root.show-balance ? "Saldo do mês" : "Total gasto no mês";
+                                color: #ffffffcc;
+                                font-size: 14px;
+                                horizontal-alignment: center;
+                            }
+                            Text {
+                                text: root.balance;
+                                color: root.balance-negative ? #ffcdd2 : white;
+                                font-size: 40px;
+                                font-weight: 800;
+                                horizontal-alignment: center;
+                            }
+
+                            // Saldo que passou do mês anterior
+                            if root.has-carry: HorizontalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    border-radius: 14px;
+                                    background: root.carry-negative ? #ff6e6e55 : #ffffff2e;
+                                    HorizontalLayout {
+                                        padding-left: 12px;
+                                        padding-right: 14px;
+                                        padding-top: 5px;
+                                        padding-bottom: 5px;
+                                        spacing: 6px;
+                                        VerticalLayout {
+                                            alignment: center;
+                                            Icon {
+                                                commands: Icons.right;
+                                                width: 16px;
+                                                height: 16px;
+                                            }
+                                        }
+                                        Text {
+                                            text: root.carry-text;
+                                            color: white;
+                                            font-size: 13px;
+                                            font-weight: 600;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Renda x Gastos
+                            HorizontalLayout {
+                                spacing: 10px;
+                                TouchArea {
+                                    horizontal-stretch: 1;
+                                    clicked => { root.new-income(); }
+                                    Rectangle {
+                                        border-radius: 16px;
+                                        background: parent.pressed ? #ffffff38 : #ffffff24;
+                                    }
+                                    HorizontalLayout {
+                                        padding: 12px;
+                                        spacing: 10px;
+                                        VerticalLayout {
+                                            alignment: center;
+                                            Rectangle {
+                                                width: 34px;
+                                                height: 34px;
+                                                border-radius: 17px;
+                                                background: Theme.income-light;
+                                                Icon {
+                                                    commands: Icons.up;
+                                                    fill: Theme.income;
+                                                    width: 20px;
+                                                    height: 20px;
+                                                }
+                                            }
+                                        }
+                                        VerticalLayout {
+                                            alignment: center;
+                                            spacing: 1px;
+                                            Text {
+                                                text: root.has-income ? "Renda" : "Renda  ·  adicionar";
+                                                color: #ffffffcc;
+                                                font-size: 12px;
+                                                overflow: elide;
+                                            }
+                                            Text {
+                                                text: root.income-total;
+                                                color: white;
+                                                font-size: 16px;
+                                                font-weight: 700;
+                                                overflow: elide;
+                                            }
+                                        }
+                                    }
+                                }
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    border-radius: 16px;
+                                    background: #ffffff24;
+                                    HorizontalLayout {
+                                        padding: 12px;
+                                        spacing: 10px;
+                                        VerticalLayout {
+                                            alignment: center;
+                                            Rectangle {
+                                                width: 34px;
+                                                height: 34px;
+                                                border-radius: 17px;
+                                                background: #ffcdd2;
+                                                Icon {
+                                                    commands: Icons.down;
+                                                    fill: Theme.danger;
+                                                    width: 20px;
+                                                    height: 20px;
+                                                }
+                                            }
+                                        }
+                                        VerticalLayout {
+                                            alignment: center;
+                                            spacing: 1px;
+                                            Text {
+                                                text: "Gastos";
+                                                color: #ffffffcc;
+                                                font-size: 12px;
+                                            }
+                                            Text {
+                                                text: root.month-total;
+                                                color: white;
+                                                font-size: 16px;
+                                                font-weight: 700;
+                                                overflow: elide;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Quanto da renda já foi gasto
+                            VerticalLayout {
+                                spacing: 6px;
+                                if root.show-balance: Rectangle {
+                                    height: 8px;
+                                    border-radius: 4px;
+                                    background: #ffffff33;
+                                    Rectangle {
+                                        x: 0;
+                                        width: parent.width * min(1.0, root.spent-ratio);
+                                        height: parent.height;
+                                        border-radius: 4px;
+                                        background: root.spent-ratio > 1.0 ? #ff8a80 : root.spent-ratio > 0.8 ? #ffd54f : white;
+                                        animate width {
+                                            duration: 400ms;
+                                            easing: ease-out;
+                                        }
+                                    }
+                                }
+                                Text {
+                                    text: root.spent-text;
+                                    color: #ffffffdd;
+                                    font-size: 13px;
+                                    horizontal-alignment: center;
+                                    wrap: word-wrap;
+                                }
+                                if root.planned-text != "": HorizontalLayout {
+                                    alignment: center;
+                                    Rectangle {
+                                        border-radius: 12px;
+                                        background: #ffb74d40;
+                                        HorizontalLayout {
+                                            padding-left: 12px;
+                                            padding-right: 12px;
+                                            padding-top: 4px;
+                                            padding-bottom: 4px;
+                                            Text {
+                                                text: root.planned-text;
+                                                color: white;
+                                                font-size: 12px;
+                                                font-weight: 600;
+                                                wrap: word-wrap;
+                                                horizontal-alignment: center;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            HorizontalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    border-radius: 14px;
+                                    background: root.compare-up ? #ff6e6e55 : #ffffff2e;
+                                    HorizontalLayout {
+                                        padding-left: 14px;
+                                        padding-right: 14px;
+                                        padding-top: 5px;
+                                        padding-bottom: 5px;
+                                        Text {
+                                            text: root.compare-text;
+                                            color: white;
+                                            font-size: 13px;
+                                            font-weight: 600;
+                                        }
+                                    }
+                                }
+                            }
+                            HorizontalLayout {
+                                spacing: 10px;
+                                padding-top: 6px;
+                                for st in root.stats: Rectangle {
+                                    horizontal-stretch: 1;
+                                    border-radius: 14px;
+                                    background: #ffffff1f;
+                                    VerticalLayout {
+                                        padding: 10px;
+                                        spacing: 2px;
+                                        Text {
+                                            text: st.label;
+                                            color: #ffffffbb;
+                                            font-size: 12px;
+                                            horizontal-alignment: center;
+                                        }
+                                        Text {
+                                            text: st.value;
+                                            color: white;
+                                            font-size: 15px;
+                                            font-weight: 700;
+                                            horizontal-alignment: center;
+                                            overflow: elide;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Lembrete (não disruptivo): pagamentos planejados vencidos ou que vencem em até 3 dias
+                    if root.due-count > 0: HorizontalLayout {
+                        padding-left: dashcol.side;
+                        padding-right: dashcol.side;
+                        Card {
+                            border-width: 1px;
+                            border-color: #ffcc80;
+                            VerticalLayout {
+                                padding: 14px;
+                                spacing: 6px;
+                                HorizontalLayout {
+                                    spacing: 12px;
+                                    padding-bottom: 4px;
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Rectangle {
+                                            width: 38px;
+                                            height: 38px;
+                                            border-radius: 19px;
+                                            background: #fff3e0;
+                                            Icon {
+                                                commands: Icons.bell;
+                                                fill: #ef6c00;
+                                                width: 20px;
+                                                height: 20px;
+                                            }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        alignment: center;
+                                        spacing: 1px;
+                                        horizontal-stretch: 1;
+                                        Text {
+                                            text: "Pagamentos para confirmar";
+                                            font-size: 16px;
+                                            font-weight: 700;
+                                            color: Theme.text;
+                                        }
+                                        Text {
+                                            text: (root.due-count == 1 ? "1 pendente" : root.due-count + " pendentes") + " · " + root.due-total;
+                                            font-size: 12px;
+                                            color: Theme.muted;
+                                        }
+                                    }
+                                }
+                                for d in root.due-items: HorizontalLayout {
+                                    spacing: 10px;
+                                    height: 52px;
+                                    TouchArea {
+                                        horizontal-stretch: 1;
+                                        mouse-cursor: pointer;
+                                        clicked => { root.edit-expense(d.id); }
+                                        VerticalLayout {
+                                            alignment: center;
+                                            spacing: 2px;
+                                            Text {
+                                                text: d.description;
+                                                font-size: 14px;
+                                                font-weight: 600;
+                                                color: Theme.text;
+                                                overflow: elide;
+                                            }
+                                            Text {
+                                                text: d.date + "  ·  " + d.amount;
+                                                font-size: 12px;
+                                                color: d.overdue ? Theme.danger : Theme.muted;
+                                                font-weight: d.overdue ? 700 : 400;
+                                                overflow: elide;
+                                            }
+                                        }
+                                    }
+                                    VerticalLayout {
+                                        alignment: center;
+                                        Btn {
+                                            width: 84px;
+                                            height: 38px;
+                                            text: "Pago";
+                                            clicked => { root.confirm-payment(d.id); }
+                                        }
+                                    }
+                                }
+                                if root.due-count > root.due-items.length: TouchArea {
+                                    height: 30px;
+                                    mouse-cursor: pointer;
+                                    clicked => {
+                                        root.set-filter("");
+                                        root.list-mode = 0;
+                                        root.tab = 1;
+                                    }
+                                    Text {
+                                        width: parent.width;
+                                        height: parent.height;
+                                        text: "+ " + (root.due-count - root.due-items.length) + " no Extrato";
+                                        color: Theme.primary2;
+                                        font-size: 13px;
+                                        font-weight: 700;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Celular: uma coluna (blocos em linhas). Computador: duas colunas.
+                    GridLayout {
+                        padding-left: dashcol.side;
+                        padding-right: dashcol.side;
+                        spacing: 14px;
+
+                    // Coluna 1
+                    Rectangle {
+                        row: 0;
+                        col: 0;
+                        preferred-width: 100px;
+                        horizontal-stretch: 1;
+                    VerticalLayout {
+                        alignment: start;
+                        spacing: 14px;
+
+                        // Rosca por categoria
+                        Card {
+                            VerticalLayout {
+                                padding: 16px;
+                                spacing: 10px;
+                                HorizontalLayout {
+                                    CardTitle {
+                                        text: "Gastos por categoria";
+                                        horizontal-stretch: 1;
+                                    }
+                                    if root.selected-slice != "": TouchArea {
+                                        width: 70px;
+                                        clicked => { root.select-slice(""); }
+                                        Text {
+                                            width: parent.width;
+                                            height: parent.height;
+                                            text: "Limpar";
+                                            color: Theme.primary2;
+                                            font-size: 14px;
+                                            font-weight: 700;
+                                            horizontal-alignment: right;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                                HorizontalLayout {
+                                    alignment: center;
+                                    Rectangle {
+                                        width: 230px;
+                                        height: 230px;
+                                        for s in root.slices: Path {
+                                            width: parent.width;
+                                            height: parent.height;
+                                            viewbox-width: 200;
+                                            viewbox-height: 200;
+                                            commands: s.path;
+                                            fill: s.color;
+                                            opacity: root.selected-slice == "" || s.selected ? 1.0 : 0.28;
+                                            animate opacity { duration: 180ms; }
+                                        }
+                                        VerticalLayout {
+                                            alignment: center;
+                                            padding-left: 38px;
+                                            padding-right: 38px;
+                                            spacing: 2px;
+                                            Text {
+                                                text: root.donut-title;
+                                                font-size: 13px;
+                                                color: Theme.muted;
+                                                horizontal-alignment: center;
+                                                overflow: elide;
+                                            }
+                                            Text {
+                                                text: root.donut-value;
+                                                font-size: 20px;
+                                                font-weight: 800;
+                                                color: Theme.text;
+                                                horizontal-alignment: center;
+                                                overflow: elide;
+                                            }
+                                            Text {
+                                                text: root.donut-sub;
+                                                font-size: 12px;
+                                                color: Theme.muted;
+                                                horizontal-alignment: center;
+                                                overflow: elide;
+                                            }
+                                        }
+                                        TouchArea {
+                                            clicked => {
+                                                root.donut-tap(self.mouse-x / self.width * 2 - 1, self.mouse-y / self.height * 2 - 1);
+                                            }
+                                        }
+                                    }
+                                }
+                                if root.has-data: VerticalLayout {
+                                    spacing: 4px;
+                                    for s in root.slices: TouchArea {
+                                        height: 50px;
+                                        clicked => { root.select-slice(s.selected ? "" : s.name); }
+                                        Rectangle {
+                                            border-radius: 12px;
+                                            background: s.selected ? s.color.transparentize(0.88) : transparent;
+                                        }
+                                        VerticalLayout {
+                                            padding-left: 10px;
+                                            padding-right: 10px;
+                                            padding-top: 7px;
+                                            padding-bottom: 7px;
+                                            spacing: 6px;
+                                            HorizontalLayout {
+                                                spacing: 10px;
+                                                VerticalLayout {
+                                                    alignment: center;
+                                                    Rectangle {
+                                                        width: 12px;
+                                                        height: 12px;
+                                                        border-radius: 4px;
+                                                        background: s.color;
+                                                    }
+                                                }
+                                                Text {
+                                                    text: s.name;
+                                                    font-size: 15px;
+                                                    font-weight: s.selected ? 700 : 500;
+                                                    color: Theme.text;
+                                                    horizontal-stretch: 1;
+                                                    overflow: elide;
+                                                }
+                                                Text {
+                                                    text: s.percent;
+                                                    font-size: 13px;
+                                                    color: Theme.muted;
+                                                    vertical-alignment: center;
+                                                }
+                                                Text {
+                                                    text: s.value;
+                                                    font-size: 15px;
+                                                    font-weight: 700;
+                                                    color: Theme.text;
+                                                }
+                                            }
+                                            Rectangle {
+                                                height: 5px;
+                                                border-radius: 2.5px;
+                                                background: #edf1ec;
+                                                Rectangle {
+                                                    x: 0;
+                                                    width: parent.width * s.fraction;
+                                                    height: parent.height;
+                                                    border-radius: 2.5px;
+                                                    background: s.color;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if root.selected-slice != "": Btn {
+                                    kind: 1;
+                                    text: "Ver despesas de " + root.selected-slice;
+                                    clicked => {
+                                        root.set-filter(root.selected-slice);
+                                        root.tab = 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    }
+
+                    // Coluna 2
+                    Rectangle {
+                        row: root.wide ? 0 : 1;
+                        col: root.wide ? 1 : 0;
+                        preferred-width: 100px;
+                        horizontal-stretch: 1;
+                    VerticalLayout {
+                        alignment: start;
+                        spacing: 14px;
+
+                        // Últimos 6 meses
+                        Card {
+                            VerticalLayout {
+                                padding: 16px;
+                                spacing: 12px;
+                                HorizontalLayout {
+                                    CardTitle {
+                                        text: "Últimos 6 meses";
+                                        horizontal-stretch: 1;
+                                    }
+                                    HorizontalLayout {
+                                        spacing: 6px;
+                                        alignment: end;
+                                        VerticalLayout {
+                                            alignment: center;
+                                            Rectangle {
+                                                width: 10px;
+                                                height: 10px;
+                                                border-radius: 3px;
+                                                background: Theme.primary2;
+                                            }
+                                        }
+                                        Text {
+                                            text: "Gastos";
+                                            font-size: 12px;
+                                            color: Theme.muted;
+                                            vertical-alignment: center;
+                                        }
+                                        Rectangle { width: 4px; }
+                                        VerticalLayout {
+                                            alignment: center;
+                                            Rectangle {
+                                                width: 10px;
+                                                height: 10px;
+                                                border-radius: 3px;
+                                                background: Theme.income;
+                                            }
+                                        }
+                                        Text {
+                                            text: "Renda";
+                                            font-size: 12px;
+                                            color: Theme.muted;
+                                            vertical-alignment: center;
+                                        }
+                                        Rectangle { width: 4px; }
+                                        VerticalLayout {
+                                            alignment: center;
+                                            Rectangle {
+                                                width: 10px;
+                                                height: 10px;
+                                                border-radius: 3px;
+                                                background: #ffb74d;
+                                            }
+                                        }
+                                        Text {
+                                            text: "Planejado";
+                                            font-size: 12px;
+                                            color: Theme.muted;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                                HorizontalLayout {
+                                    height: 160px;
+                                    spacing: 10px;
+                                    for m in root.month-bars: TouchArea {
+                                        clicked => { root.select-month-offset(m.offset); }
+                                        VerticalLayout {
+                                            spacing: 5px;
+                                            alignment: end;
+                                            Text {
+                                                text: m.value;
+                                                font-size: 11px;
+                                                font-weight: m.selected ? 800 : 500;
+                                                color: m.selected ? Theme.primary : Theme.muted;
+                                                horizontal-alignment: center;
+                                            }
+                                            HorizontalLayout {
+                                                height: 100px;
+                                                spacing: 3px;
+                                                VerticalLayout {
+                                                    alignment: end;
+                                                    spacing: 2px;
+                                                    if m.planned-fraction > 0: Rectangle {
+                                                        height: max(3px, 100px * m.planned-fraction);
+                                                        border-radius: 6px;
+                                                        background: m.selected ? #ffb74d : #ffe0b2;
+                                                    }
+                                                    Rectangle {
+                                                        height: max(4px, 100px * m.fraction);
+                                                        border-radius: 6px;
+                                                        background: m.selected ? Theme.primary2 : #c8e6c9;
+                                                        animate height {
+                                                            duration: 350ms;
+                                                            easing: ease-out;
+                                                        }
+                                                    }
+                                                }
+                                                VerticalLayout {
+                                                    alignment: end;
+                                                    Rectangle {
+                                                        height: max(4px, 100px * m.income-fraction);
+                                                        border-radius: 6px;
+                                                        background: m.selected ? Theme.income : Theme.income-light;
+                                                        animate height {
+                                                            duration: 350ms;
+                                                            easing: ease-out;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            Text {
+                                                text: m.label;
+                                                font-size: 12px;
+                                                font-weight: m.selected ? 700 : 400;
+                                                color: m.selected ? Theme.text : Theme.muted;
+                                                horizontal-alignment: center;
+                                            }
+                                        }
+                                    }
+                                }
+                                if root.months-info != "": Text {
+                                    text: root.months-info;
+                                    font-size: 13px;
+                                    color: Theme.muted;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                        }
+
+                        // Gastos por dia
+                        Card {
+                            VerticalLayout {
+                                padding: 16px;
+                                spacing: 10px;
+                                CardTitle { text: "Gastos por dia"; }
+                                Text {
+                                    text: root.day-info;
+                                    font-size: 13px;
+                                    color: root.selected-day > 0 ? Theme.highlight : Theme.muted;
+                                    font-weight: root.selected-day > 0 ? 700 : 400;
+                                }
+                                HorizontalLayout {
+                                    height: 110px;
+                                    spacing: 2px;
+                                    for d in root.day-bars: TouchArea {
+                                        clicked => { root.select-day(d.day == root.selected-day ? 0 : d.day); }
+                                        VerticalLayout {
+                                            alignment: end;
+                                            Rectangle {
+                                                height: max(3px, 110px * d.fraction);
+                                                border-radius: 3px;
+                                                background: d.day == root.selected-day ? Theme.highlight
+                                                    : d.fraction > 0 ? Theme.primary2 : #e4eae3;
+                                                animate height {
+                                                    duration: 350ms;
+                                                    easing: ease-out;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                HorizontalLayout {
+                                    Text {
+                                        text: "1";
+                                        font-size: 11px;
+                                        color: Theme.muted;
+                                    }
+                                    Text {
+                                        text: "15";
+                                        font-size: 11px;
+                                        color: Theme.muted;
+                                        horizontal-stretch: 1;
+                                        horizontal-alignment: center;
+                                    }
+                                    Text {
+                                        text: root.days-in-month;
+                                        font-size: 11px;
+                                        color: Theme.muted;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Maiores despesas
+                        Card {
+                            VerticalLayout {
+                                padding: 16px;
+                                padding-left: 6px;
+                                padding-right: 6px;
+                                spacing: 2px;
+                                HorizontalLayout {
+                                    padding-left: 10px;
+                                    height: 36px;
+                                    CardTitle { text: "Maiores despesas"; }
+                                }
+                                if root.top-expenses.length == 0: HorizontalLayout {
+                                    padding-left: 10px;
+                                    padding-right: 10px;
+                                    Text {
+                                        text: "Nenhuma despesa neste mês. Toque em + para adicionar.";
+                                        color: Theme.muted;
+                                        font-size: 14px;
+                                        wrap: word-wrap;
+                                    }
+                                }
+                                for t in root.top-expenses: ExpenseRow {
+                                    item: t;
+                                    clicked => { root.edit-expense(t.id); }
+                                }
+                            }
+                        }
+                    }
+                    }
+                    }
+                }
+            }
+
+            // -------------------- EXTRATO (despesas / receitas) --------------------
+            if root.tab == 1: VerticalLayout {
+                vertical-stretch: 1;
+                Rectangle {
+                    background: root.list-mode == 1 ? Theme.income-header : Theme.header;
+                    border-bottom-left-radius: 28px;
+                    border-bottom-right-radius: 28px;
+                    VerticalLayout {
+                        padding: 16px;
+                        padding-left: root.side-pad + 2px;
+                        padding-right: root.side-pad + 2px;
+                        padding-top: root.wide ? 22px : 10px;
+                        padding-bottom: 18px;
+                        spacing: 10px;
+                        HorizontalLayout {
+                            Text {
+                                text: "Extrato";
+                                color: white;
+                                font-size: 22px;
+                                font-weight: 800;
+                                horizontal-stretch: 1;
+                            }
+                            Text {
+                                text: root.list-mode == 1 ? "+ " + root.income-total : root.filter-total;
+                                color: white;
+                                font-size: 20px;
+                                font-weight: 800;
+                                vertical-alignment: center;
+                            }
+                        }
+                        MonthSelector {
+                            label: root.month-label;
+                            prev => { root.prev-month(); }
+                            next => { root.next-month(); }
+                        }
+                        Segmented {
+                            left: "Despesas";
+                            right: "Receitas";
+                            index <=> root.list-mode;
+                        }
+                    }
+                }
+
+                // ---- Receitas ----
+                if root.list-mode == 1: isv := ScrollView {
+                    vertical-scrollbar-policy: always-off;
+                    vertical-stretch: 1;
+                    content-width: self.visible-width;
+                    content-height: icol.preferred-height;
+                    icol := VerticalLayout {
+                        width: isv.visible-width;
+                        padding: 14px;
+                        padding-left: root.side-pad;
+                        padding-right: root.side-pad;
+                        padding-bottom: 96px;
+                        spacing: 8px;
+                        if root.incomes.length == 0: VerticalLayout {
+                            padding-top: 50px;
+                            spacing: 14px;
+                            HorizontalLayout {
+                                alignment: center;
+                                Icon {
+                                    commands: Icons.up;
+                                    fill: Theme.income-light;
+                                    width: 56px;
+                                    height: 56px;
+                                }
+                            }
+                            Text {
+                                text: "Nenhuma receita neste mês.\nRegistre seu salário ou outros valores recebidos.";
+                                color: Theme.muted;
+                                font-size: 15px;
+                                horizontal-alignment: center;
+                                wrap: word-wrap;
+                            }
+                            HorizontalLayout {
+                                alignment: center;
+                                Btn {
+                                    width: 220px;
+                                    text: "Adicionar receita";
+                                    clicked => { root.new-income(); }
+                                }
+                            }
+                        }
+                        for e in root.incomes: ExpenseRow {
+                            item: e;
+                            clicked => { root.edit-expense(e.id); }
+                        }
+                    }
+                }
+
+                // ---- Despesas ----
+                if root.list-mode == 0: Flickable {
+                    height: 60px;
+                    content-width: chiprow.preferred-width;
+                    chiprow := HorizontalLayout {
+                        height: 60px;
+                        padding-left: root.side-pad;
+                        padding-right: 14px;
+                        padding-top: 10px;
+                        padding-bottom: 10px;
+                        spacing: 8px;
+                        Chip {
+                            label: "Todas";
+                            show-dot: false;
+                            selected: root.filter-category == "";
+                            clicked => { root.set-filter(""); }
+                        }
+                        for c in root.chips: Chip {
+                            label: c.name;
+                            dot: c.color;
+                            selected: root.filter-category == c.name;
+                            clicked => { root.set-filter(c.name); }
+                        }
+                    }
+                }
+                if root.list-mode == 0: lsv := ScrollView {
+                    vertical-scrollbar-policy: always-off;
+                    vertical-stretch: 1;
+                    content-width: self.visible-width;
+                    content-height: lcol.preferred-height;
+                    lcol := VerticalLayout {
+                        width: lsv.visible-width;
+                        padding-left: root.side-pad;
+                        padding-right: root.side-pad;
+                        padding-bottom: 96px;
+                        spacing: 8px;
+                        if root.expenses.length == 0: VerticalLayout {
+                            padding-top: 60px;
+                            spacing: 10px;
+                            HorizontalLayout {
+                                alignment: center;
+                                Icon {
+                                    commands: Icons.list;
+                                    fill: #c3cbc2;
+                                    width: 56px;
+                                    height: 56px;
+                                }
+                            }
+                            Text {
+                                text: root.filter-category == "" ? "Nenhuma despesa neste mês." : "Nenhuma despesa de " + root.filter-category + " neste mês.";
+                                color: Theme.muted;
+                                font-size: 15px;
+                                horizontal-alignment: center;
+                                wrap: word-wrap;
+                            }
+                        }
+                        for e in root.expenses: Rectangle {
+                            height: e.is-header ? 36px : 72px;
+                            if e.is-header: HorizontalLayout {
+                                padding-top: 12px;
+                                padding-left: 6px;
+                                padding-right: 6px;
+                                Text {
+                                    text: e.description;
+                                    font-size: 14px;
+                                    font-weight: 700;
+                                    color: Theme.muted;
+                                    horizontal-stretch: 1;
+                                }
+                                Text {
+                                    text: e.header-total;
+                                    font-size: 14px;
+                                    font-weight: 600;
+                                    color: Theme.muted;
+                                }
+                            }
+                            if !e.is-header: ExpenseRow {
+                                item: e;
+                                clicked => { root.edit-expense(e.id); }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // -------------------- CATEGORIAS --------------------
+            if root.tab == 2: VerticalLayout {
+                vertical-stretch: 1;
+                Rectangle {
+                    background: Theme.header;
+                    border-bottom-left-radius: 28px;
+                    border-bottom-right-radius: 28px;
+                    VerticalLayout {
+                        padding: 16px;
+                        padding-left: root.side-pad + 2px;
+                        padding-right: root.side-pad + 2px;
+                        padding-top: root.wide ? 22px : 10px;
+                        padding-bottom: 20px;
+                        spacing: 4px;
+                        Text {
+                            text: "Categorias";
+                            color: white;
+                            font-size: 22px;
+                            font-weight: 800;
+                        }
+                        Text {
+                            text: "Gastos de " + root.month-label;
+                            color: #ffffffcc;
+                            font-size: 14px;
+                        }
+                    }
+                }
+                csv := ScrollView {
+                    vertical-scrollbar-policy: always-off;
+                    vertical-stretch: 1;
+                    content-width: self.visible-width;
+                    content-height: ccol.preferred-height;
+                    ccol := VerticalLayout {
+                        width: csv.visible-width;
+                        padding: 14px;
+                        padding-left: root.side-pad;
+                        padding-right: root.side-pad;
+                        padding-bottom: 24px + root.virtual-keyboard-size.height;
+                        spacing: 10px;
+                        Card {
+                            HorizontalLayout {
+                                padding: 10px;
+                                spacing: 10px;
+                                nc := TextField {
+                                    placeholder: "Nova categoria";
+                                    horizontal-stretch: 1;
+                                    accepted => {
+                                        root.add-category(self.text);
+                                        self.text = "";
+                                    }
+                                }
+                                Btn {
+                                    text: "Adicionar";
+                                    width: 120px;
+                                    clicked => {
+                                        root.add-category(nc.text);
+                                        nc.text = "";
+                                    }
+                                }
+                            }
+                        }
+                        if root.category-error != "": Text {
+                            text: root.category-error;
+                            color: Theme.danger;
+                            font-size: 14px;
+                            wrap: word-wrap;
+                        }
+                        for c in root.category-rows: Card {
+                            HorizontalLayout {
+                                padding: 14px;
+                                padding-right: 6px;
+                                spacing: 12px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    Rectangle {
+                                        width: 42px;
+                                        height: 42px;
+                                        border-radius: 13px;
+                                        background: c.color.transparentize(0.82);
+                                        Rectangle {
+                                            width: 14px;
+                                            height: 14px;
+                                            border-radius: 7px;
+                                            background: c.color;
+                                        }
+                                    }
+                                }
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    alignment: center;
+                                    spacing: 6px;
+                                    HorizontalLayout {
+                                        spacing: 8px;
+                                        Text {
+                                            text: c.name;
+                                            font-size: 16px;
+                                            font-weight: 600;
+                                            color: Theme.text;
+                                            horizontal-stretch: 1;
+                                            overflow: elide;
+                                        }
+                                        Text {
+                                            text: c.total;
+                                            font-size: 15px;
+                                            font-weight: 700;
+                                            color: Theme.text;
+                                        }
+                                    }
+                                    Rectangle {
+                                        height: 5px;
+                                        border-radius: 2.5px;
+                                        background: #edf1ec;
+                                        Rectangle {
+                                            x: 0;
+                                            width: parent.width * c.fraction;
+                                            height: parent.height;
+                                            border-radius: 2.5px;
+                                            background: c.color;
+                                        }
+                                    }
+                                    Text {
+                                        text: c.info;
+                                        font-size: 12px;
+                                        color: Theme.muted;
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    if root.confirm-remove != c.name: IconButton {
+                                        icon: Icons.trash;
+                                        tint: #a3aca2;
+                                        size: 22px;
+                                        clicked => { root.confirm-remove = c.name; }
+                                    }
+                                    if root.confirm-remove == c.name: TouchArea {
+                                        width: 84px;
+                                        height: 36px;
+                                        clicked => {
+                                            root.remove-category(c.name);
+                                            root.confirm-remove = "";
+                                        }
+                                        Rectangle {
+                                            border-radius: 18px;
+                                            background: Theme.danger;
+                                        }
+                                        Text {
+                                            width: parent.width;
+                                            height: parent.height;
+                                            text: "Remover";
+                                            color: white;
+                                            font-size: 13px;
+                                            font-weight: 700;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Text {
+                            text: "Toque na lixeira e confirme para remover. As despesas já lançadas na categoria são mantidas.";
+                            color: Theme.muted;
+                            font-size: 12px;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+
+            // -------------------- BARRA DE ABAS (celular) --------------------
+            if !root.wide: Rectangle {
+                height: 68px;
+                background: white;
+                drop-shadow-blur: 14px;
+                drop-shadow-color: #0000001c;
+                HorizontalLayout {
+                    padding-top: 6px;
+                    padding-bottom: 6px;
+                    TabItem {
+                        icon: Icons.pie;
+                        label: "Painel";
+                        active: root.tab == 0;
+                        clicked => { root.tab = 0; }
+                    }
+                    TabItem {
+                        icon: Icons.list;
+                        label: "Extrato";
+                        active: root.tab == 1;
+                        clicked => { root.tab = 1; }
+                    }
+                    TabItem {
+                        icon: Icons.grid;
+                        label: "Categorias";
+                        active: root.tab == 2;
+                        clicked => {
+                            root.tab = 2;
+                            root.confirm-remove = "";
+                            root.category-error = "";
+                        }
+                    }
+                }
+            }
+        }
+        }
+
+        // Botão flutuante "+" (no computador os botões ficam na barra lateral)
+        if root.tab != 2 && !root.wide: TouchArea {
+            x: parent.width - 82px;
+            y: parent.height - 68px - 82px;
+            width: 62px;
+            height: 62px;
+            property <bool> income-mode: root.tab == 1 && root.list-mode == 1;
+            clicked => {
+                if (self.income-mode) {
+                    root.new-income();
+                } else {
+                    root.new-expense();
+                }
+            }
+            Rectangle {
+                border-radius: 20px;
+                background: parent.income-mode
+                    ? (parent.pressed ? Theme.income-dark : Theme.income)
+                    : (parent.pressed ? Theme.primary : Theme.primary2);
+                drop-shadow-blur: 12px;
+                drop-shadow-offset-y: 4px;
+                drop-shadow-color: #00000055;
+            }
+            Icon {
+                commands: Icons.plus;
+                width: 30px;
+                height: 30px;
+            }
+        }
+    }
+
+    // ==================================================================
+    // 1. FORMULÁRIO
+    // ==================================================================
+    if root.page == 1: Rectangle {
+        y: root.safe-area-insets.top;
+        width: parent.width;
+        height: parent.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+        VerticalLayout {
+            Rectangle {
+                background: root.form-kind == 1 ? Theme.income-header : Theme.header;
+                border-bottom-left-radius: 28px;
+                border-bottom-right-radius: 28px;
+                VerticalLayout {
+                    padding-bottom: 22px;
+                    spacing: 6px;
+                    HorizontalLayout {
+                        height: 56px;
+                        padding-left: 4px;
+                        padding-right: 12px;
+                        IconButton {
+                            icon: Icons.back;
+                            clicked => { root.cancel-form(); }
+                        }
+                        Text {
+                            text: root.editing-id >= 0
+                                ? (root.form-kind == 1 ? "Editar receita" : "Editar despesa")
+                                : "Novo lançamento";
+                            color: white;
+                            font-size: 20px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                            horizontal-stretch: 1;
+                        }
+                    }
+                    // Tipo do lançamento (só ao criar)
+                    if root.editing-id < 0: HorizontalLayout {
+                        padding-left: 24px;
+                        padding-right: 24px;
+                        padding-bottom: 8px;
+                        Segmented {
+                            left: "Despesa";
+                            right: "Receita";
+                            index <=> root.form-kind;
+                        }
+                    }
+                    Text {
+                        text: root.form-kind == 1 ? "Valor recebido" : "Valor da despesa";
+                        color: #ffffffcc;
+                        font-size: 14px;
+                        horizontal-alignment: center;
+                    }
+                    HorizontalLayout {
+                        alignment: center;
+                        spacing: 8px;
+                        Text {
+                            text: "R$";
+                            color: #ffffffdd;
+                            font-size: 26px;
+                            font-weight: 600;
+                            vertical-alignment: center;
+                        }
+                        Rectangle {
+                            width: 210px;
+                            height: 60px;
+                            if root.form-amount == "": Text {
+                                width: parent.width;
+                                height: parent.height;
+                                text: "0,00";
+                                color: #ffffff66;
+                                font-size: 40px;
+                                font-weight: 800;
+                                vertical-alignment: center;
+                            }
+                            amount-input := TextInput {
+                                width: parent.width;
+                                height: parent.height;
+                                text <=> root.form-amount;
+                                color: white;
+                                font-size: 40px;
+                                font-weight: 800;
+                                vertical-alignment: center;
+                                single-line: true;
+                            }
+                            Rectangle {
+                                y: parent.height - 2px;
+                                height: 2px;
+                                background: amount-input.has-focus ? white : #ffffff55;
+                            }
+                        }
+                    }
+                }
+            }
+
+            fsv := ScrollView {
+
+                vertical-scrollbar-policy: always-off;
+                vertical-stretch: 1;
+                content-width: self.visible-width;
+                content-height: form.preferred-height;
+                form := VerticalLayout {
+                    width: fsv.visible-width;
+                    padding: 16px;
+                    padding-left: root.wide ? max(16px, (fsv.visible-width - 680px) / 2) : 16px;
+                    padding-right: root.wide ? max(16px, (fsv.visible-width - 680px) / 2) : 16px;
+                    padding-bottom: 20px + root.virtual-keyboard-size.height;
+                    spacing: 8px;
+
+                    FieldLabel { text: "DESCRIÇÃO"; }
+                    TextField {
+                        text <=> root.form-description;
+                        placeholder: root.form-kind == 1 ? "Ex.: Salário" : "Ex.: Supermercado";
+                    }
+
+                    // Sugestões rápidas para receitas
+                    if root.form-kind == 1: HorizontalLayout {
+                        spacing: 8px;
+                        padding-top: 4px;
+                        for sug in ["Salário", "Freelance", "Outros"]: Chip {
+                            label: sug;
+                            dot: Theme.income;
+                            selected: root.form-description == sug;
+                            show-dot: false;
+                            clicked => { root.form-description = sug; }
+                        }
+                    }
+
+                    if root.form-kind == 0: VerticalLayout {
+                        spacing: 8px;
+                        FieldLabel {
+                            text: "CATEGORIA";
+                            height: 28px;
+                            vertical-alignment: bottom;
+                        }
+                        Rectangle {
+                            height: Math.ceil(root.chips.length / 2) * 50px;
+                            for c[i] in root.chips: Chip {
+                                x: Math.mod(i, 2) * (parent.width + 8px) / 2;
+                                y: Math.floor(i / 2) * 50px;
+                                width: (parent.width - 8px) / 2;
+                                label: c.name;
+                                dot: c.color;
+                                selected: root.form-category-index == i;
+                                clicked => { root.form-category-index = i; }
+                            }
+                        }
+                    }
+
+                    FieldLabel {
+                        text: "DATA";
+                        height: 28px;
+                        vertical-alignment: bottom;
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        TextField {
+                            text <=> root.form-date;
+                            placeholder: "dd/mm/aaaa";
+                            horizontal-stretch: 1;
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            Chip {
+                                label: "Hoje";
+                                show-dot: false;
+                                clicked => { root.set-date-offset(0); }
+                            }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            Chip {
+                                label: "Ontem";
+                                show-dot: false;
+                                clicked => { root.set-date-offset(-1); }
+                            }
+                        }
+                    }
+
+                    // Pagamento: à vista ou parcelado (só ao criar uma despesa)
+                    if root.form-kind == 0 && root.editing-id < 0: VerticalLayout {
+                        spacing: 8px;
+                        FieldLabel {
+                            text: "PAGAMENTO";
+                            height: 28px;
+                            vertical-alignment: bottom;
+                        }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Chip {
+                                label: "À vista";
+                                show-dot: false;
+                                horizontal-stretch: 1;
+                                selected: !root.form-parcelado;
+                                clicked => { root.form-parcelado = false; }
+                            }
+                            Chip {
+                                label: "Parcelado";
+                                show-dot: false;
+                                horizontal-stretch: 1;
+                                selected: root.form-parcelado;
+                                clicked => { root.form-parcelado = true; }
+                            }
+                        }
+                        if root.form-parcelado: HorizontalLayout {
+                            spacing: 10px;
+                            VerticalLayout {
+                                alignment: center;
+                                horizontal-stretch: 1;
+                                Text {
+                                    text: "Número de parcelas";
+                                    color: Theme.text;
+                                    font-size: 15px;
+                                }
+                            }
+                            Btn {
+                                kind: 1;
+                                width: 52px;
+                                height: 44px;
+                                text: "-";
+                                clicked => { root.form-parcels = max(2, root.form-parcels - 1); }
+                            }
+                            Text {
+                                width: 56px;
+                                text: root.form-parcels + "x";
+                                font-size: 20px;
+                                font-weight: 800;
+                                color: Theme.text;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                            Btn {
+                                kind: 1;
+                                width: 52px;
+                                height: 44px;
+                                text: "+";
+                                clicked => { root.form-parcels = min(60, root.form-parcels + 1); }
+                            }
+                        }
+                        if root.form-parcelado: HorizontalLayout {
+                            spacing: 8px;
+                            Chip {
+                                label: "Valor é o total";
+                                show-dot: false;
+                                horizontal-stretch: 1;
+                                selected: root.form-total-mode;
+                                clicked => { root.form-total-mode = true; }
+                            }
+                            Chip {
+                                label: "Valor é a parcela";
+                                show-dot: false;
+                                horizontal-stretch: 1;
+                                selected: !root.form-total-mode;
+                                clicked => { root.form-total-mode = false; }
+                            }
+                        }
+                    }
+                    // Prévia: parcelas e o que entra como gasto planejado
+                    if root.form-kind == 0 && root.editing-id < 0 && root.form-plan-preview != "": Rectangle {
+                        border-radius: 12px;
+                        background: #fff3e0;
+                        HorizontalLayout {
+                            padding: 12px;
+                            Text {
+                                text: root.form-plan-preview;
+                                wrap: word-wrap;
+                                color: #8d4b00;
+                                font-size: 13px;
+                            }
+                        }
+                    }
+                    // Editando um gasto planejado: confirmar o pagamento
+                    if root.form-kind == 0 && root.editing-id >= 0 && root.form-planned: Rectangle {
+                        border-radius: 12px;
+                        background: #fff3e0;
+                        VerticalLayout {
+                            padding: 12px;
+                            spacing: 10px;
+                            Text {
+                                text: (root.form-parcel-label != "" ? root.form-parcel-label + " · " : "") + "Gasto planejado: ainda não conta como gasto. Confirme quando pagar.";
+                                wrap: word-wrap;
+                                color: #8d4b00;
+                                font-size: 13px;
+                            }
+                            Btn {
+                                text: "Confirmar pagamento";
+                                clicked => {
+                                    root.form-confirm = true;
+                                    root.save-expense();
+                                }
+                            }
+                        }
+                    }
+                    if root.form-kind == 0 && root.editing-id >= 0 && !root.form-planned && root.form-parcel-label != "": Text {
+                        text: root.form-parcel-label + " · paga";
+                        color: Theme.muted;
+                        font-size: 13px;
+                    }
+                    if root.form-kind == 0: FieldLabel {
+                        text: "FOTO (OPCIONAL)";
+                        height: 28px;
+                        vertical-alignment: bottom;
+                    }
+                    if root.form-kind == 0 && !root.form-has-photo: TouchArea {
+                        height: 110px;
+                        enabled: !root.busy;
+                        clicked => { root.pick-photo(); }
+                        Rectangle {
+                            border-radius: 16px;
+                            background: parent.pressed ? #e6efe5 : white;
+                            border-width: 2px;
+                            border-color: Theme.border;
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 6px;
+                            HorizontalLayout {
+                                alignment: center;
+                                Icon {
+                                    commands: Icons.photo;
+                                    fill: Theme.primary2;
+                                    width: 34px;
+                                    height: 34px;
+                                }
+                            }
+                            Text {
+                                text: root.busy ? "Processando foto..." : "Toque para anexar uma foto";
+                                color: Theme.muted;
+                                font-size: 14px;
+                                horizontal-alignment: center;
+                            }
+                        }
+                    }
+                    if root.form-kind == 0 && root.form-has-photo: Rectangle {
+                        height: 230px;
+                        border-radius: 16px;
+                        clip: true;
+                        background: #dfe5de;
+                        Image {
+                            width: parent.width;
+                            height: parent.height;
+                            source: root.form-photo;
+                            image-fit: cover;
+                        }
+                        TouchArea {
+                            clicked => { root.view-photo(); }
+                        }
+                        HorizontalLayout {
+                            y: parent.height - 56px;
+                            height: 56px;
+                            padding: 8px;
+                            spacing: 8px;
+                            alignment: end;
+                            PillButton {
+                                text: root.busy ? "..." : "Trocar";
+                                clicked => { root.pick-photo(); }
+                            }
+                            PillButton {
+                                text: "Remover";
+                                clicked => { root.remove-photo(); }
+                            }
+                        }
+                    }
+
+                    if root.form-error != "": Rectangle {
+                        border-radius: 12px;
+                        background: #fdecea;
+                        HorizontalLayout {
+                            padding: 12px;
+                            Text {
+                                text: root.form-error;
+                                color: Theme.danger;
+                                font-size: 14px;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+
+                    Rectangle { height: 8px; }
+                    Btn {
+                        text: root.form-kind == 1 ? "Salvar receita"
+                            : root.editing-id < 0 && root.form-parcelado ? "Salvar " + root.form-parcels + " parcelas"
+                            : "Salvar despesa";
+                        kind: root.form-kind == 1 ? 4 : 0;
+                        enabled: !root.busy;
+                        clicked => { root.save-expense(); }
+                    }
+                    if root.editing-id >= 0: Btn {
+                        kind: root.confirm-delete ? 3 : 2;
+                        text: root.confirm-delete ? "Toque de novo para excluir" : (root.form-kind == 1 ? "Excluir receita" : "Excluir despesa");
+                        clicked => {
+                            if (root.confirm-delete) {
+                                root.delete-expense();
+                            } else {
+                                root.confirm-delete = true;
+                            }
+                        }
+                    }
+                    if root.editing-id >= 0 && root.form-kind == 0 && root.form-in-group: Btn {
+                        kind: root.confirm-future ? 3 : 2;
+                        text: root.confirm-future ? "Toque de novo para excluir as parcelas" : "Excluir esta e as próximas parcelas";
+                        clicked => {
+                            if (root.confirm-future) {
+                                root.delete-future();
+                            } else {
+                                root.confirm-future = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ==================================================================
+    // 2. GALERIA (Android)
+    // ==================================================================
+    if root.page == 2: Rectangle {
+        y: root.safe-area-insets.top;
+        width: parent.width;
+        height: parent.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+        VerticalLayout {
+            SimpleHeader {
+                title: "Escolher foto";
+                back => { root.close-picker(); }
+                IconButton {
+                    icon: Icons.refresh;
+                    size: 24px;
+                    clicked => { root.picker-refresh(); }
+                }
+            }
+            if root.picker-status != "": Rectangle {
+                background: #fff8e1;
+                VerticalLayout {
+                    padding: 14px;
+                    Text {
+                        text: root.picker-status;
+                        wrap: word-wrap;
+                        font-size: 14px;
+                        color: Theme.text;
+                    }
+                }
+            }
+            gsv := ScrollView {
+                vertical-scrollbar-policy: always-off;
+                vertical-stretch: 1;
+                content-width: self.visible-width;
+                content-height: Math.ceil(root.picker-items.length / 3) * (self.visible-width / 3);
+                for t[i] in root.picker-items: TouchArea {
+                    x: Math.mod(i, 3) * (gsv.visible-width / 3);
+                    y: Math.floor(i / 3) * (gsv.visible-width / 3);
+                    width: gsv.visible-width / 3;
+                    height: gsv.visible-width / 3;
+                    clicked => { root.picker-select(i); }
+                    Rectangle {
+                        x: 2px;
+                        y: 2px;
+                        width: parent.width - 4px;
+                        height: parent.height - 4px;
+                        background: #dddddd;
+                        border-radius: 6px;
+                        clip: true;
+                        Image {
+                            width: parent.width;
+                            height: parent.height;
+                            source: t.image;
+                            image-fit: cover;
+                        }
+                    }
+                }
+            }
+        }
+        if root.busy: Rectangle {
+            background: #00000099;
+            Text {
+                width: parent.width;
+                height: parent.height;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                text: "Processando foto...";
+                color: white;
+                font-size: 18px;
+            }
+            TouchArea { }
+        }
+    }
+
+    // ==================================================================
+    // 3. VISUALIZAR FOTO
+    // ==================================================================
+    if root.page == 3: Rectangle {
+        y: root.safe-area-insets.top;
+        width: parent.width;
+        height: parent.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+        background: black;
+        VerticalLayout {
+            SimpleHeader {
+                title: "Foto da despesa";
+                background: black;
+                back => { root.page = 1; }
+            }
+            Image {
+                vertical-stretch: 1;
+                source: root.viewer-image;
+                image-fit: contain;
+            }
+        }
+    }
+    // ==================================================================
+    // 4. SINCRONIZAÇÃO (Google Drive)
+    // ==================================================================
+    if root.page == 4: Rectangle {
+        y: root.safe-area-insets.top;
+        width: parent.width;
+        height: parent.height - root.safe-area-insets.top - root.safe-area-insets.bottom;
+        background: Theme.bg;
+        VerticalLayout {
+            SimpleHeader {
+                title: "Sincronização";
+                back => { root.page = 0; }
+            }
+            ssv := ScrollView {
+                vertical-scrollbar-policy: always-off;
+                vertical-stretch: 1;
+                content-width: self.visible-width;
+                content-height: scol.preferred-height;
+                scol := VerticalLayout {
+                    width: ssv.visible-width;
+                    padding: 16px;
+                    padding-left: root.wide ? max(16px, (ssv.visible-width - 640px) / 2) : 16px;
+                    padding-right: root.wide ? max(16px, (ssv.visible-width - 640px) / 2) : 16px;
+                    spacing: 14px;
+
+                    // Situação
+                    Card {
+                        HorizontalLayout {
+                            padding: 16px;
+                            spacing: 14px;
+                            VerticalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    width: 52px;
+                                    height: 52px;
+                                    border-radius: 26px;
+                                    background: root.sync-connected ? Theme.light : #eceff1;
+                                    Icon {
+                                        commands: Icons.cloud;
+                                        fill: root.sync-connected ? Theme.primary2 : #90a4ae;
+                                        width: 28px;
+                                        height: 28px;
+                                    }
+                                }
+                            }
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 3px;
+                                horizontal-stretch: 1;
+                                Text {
+                                    text: root.sync-connected ? "Conectado ao Google Drive" : "Não conectado";
+                                    font-size: 17px;
+                                    font-weight: 700;
+                                    color: Theme.text;
+                                }
+                                Text {
+                                    text: root.sync-busy ? "Sincronizando..."
+                                        : root.sync-status != "" ? root.sync-status
+                                        : root.sync-connected ? "Os dados são sincronizados automaticamente."
+                                        : "Conecte sua conta Google para guardar seus dados na nuvem e usá-los no celular e no computador.";
+                                    wrap: word-wrap;
+                                    color: Theme.muted;
+                                    font-size: 13px;
+                                }
+                            }
+                        }
+                    }
+
+                    if root.sync-error != "": Rectangle {
+                        border-radius: 12px;
+                        background: #fdecea;
+                        HorizontalLayout {
+                            padding: 12px;
+                            Text {
+                                text: root.sync-error;
+                                color: Theme.danger;
+                                font-size: 14px;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+
+                    // Compilado sem credenciais
+                    if !root.sync-configured: Card {
+                        VerticalLayout {
+                            padding: 16px;
+                            spacing: 6px;
+                            Text {
+                                text: "Sincronização indisponível nesta versão";
+                                font-size: 15px;
+                                font-weight: 700;
+                                color: Theme.text;
+                            }
+                            Text {
+                                text: "Este app foi gerado sem as credenciais do Google Cloud. Veja a seção \"Sincronização com o Google Drive\" do README para criá-las e gerar o app de novo.";
+                                wrap: word-wrap;
+                                color: Theme.muted;
+                                font-size: 13px;
+                            }
+                        }
+                    }
+
+                    // Conectar
+                    if root.sync-configured && !root.sync-connected && root.sync-pending == 0: VerticalLayout {
+                        spacing: 10px;
+                        if root.sync-has-direct: Btn {
+                            text: "Conectar com Google";
+                            clicked => { root.sync-connect(); }
+                        }
+                        if root.sync-has-code: Btn {
+                            kind: root.sync-has-direct ? 1 : 0;
+                            text: root.sync-has-direct ? "Entrar com código" : "Conectar com Google (código)";
+                            clicked => { root.sync-connect-code(); }
+                        }
+                        Text {
+                            text: "Os dados ficam na pasta \"Meus Gastos\" do seu Google Drive. O app só acessa os arquivos que ele mesmo criou.";
+                            wrap: word-wrap;
+                            color: Theme.muted;
+                            font-size: 13px;
+                            horizontal-alignment: center;
+                        }
+                    }
+
+                    // Login em andamento (no navegador)
+                    if root.sync-pending == 1: Card {
+                        VerticalLayout {
+                            padding: 18px;
+                            spacing: 12px;
+                            Text {
+                                text: "Continue no navegador";
+                                font-size: 17px;
+                                font-weight: 700;
+                                color: Theme.text;
+                            }
+                            Text {
+                                text: "Escolha sua conta Google e toque em \"Continuar\"/\"Permitir\". Depois volte para o app: a conexão é concluída automaticamente.";
+                                wrap: word-wrap;
+                                color: Theme.muted;
+                                font-size: 14px;
+                            }
+                            Btn {
+                                kind: 1;
+                                text: "Abrir o navegador de novo";
+                                clicked => { root.open-url(root.sync-url); }
+                            }
+                            Btn {
+                                kind: 2;
+                                text: "Cancelar";
+                                clicked => { root.sync-cancel(); }
+                            }
+                        }
+                    }
+                    // Login por código em andamento
+                    if root.sync-pending == 2: Card {
+                        VerticalLayout {
+                            padding: 18px;
+                            spacing: 10px;
+                            Text {
+                                text: "1. Abra este endereço no navegador (pode ser no celular ou no computador):";
+                                wrap: word-wrap;
+                                color: Theme.text;
+                                font-size: 14px;
+                            }
+                            Text {
+                                text: root.sync-url != "" ? root.sync-url : "Gerando código...";
+                                color: Theme.primary2;
+                                font-size: 16px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                            }
+                            if root.sync-url != "": Btn {
+                                kind: 1;
+                                text: "Abrir no navegador";
+                                clicked => { root.open-url(root.sync-url); }
+                            }
+                            Text {
+                                text: "2. Entre na sua conta Google e digite o código:";
+                                wrap: word-wrap;
+                                color: Theme.text;
+                                font-size: 14px;
+                            }
+                            Rectangle {
+                                height: 72px;
+                                border-radius: 14px;
+                                background: Theme.light;
+                                // Somente leitura: no computador dá para selecionar e copiar.
+                                TextInput {
+                                    width: parent.width;
+                                    height: parent.height;
+                                    read-only: true;
+                                    text: root.sync-code != "" ? root.sync-code : "...";
+                                    font-size: 34px;
+                                    font-weight: 800;
+                                    letter-spacing: 3px;
+                                    color: Theme.primary;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+                            Text {
+                                text: "3. Autorize o acesso. Esta tela atualiza sozinha quando terminar.";
+                                wrap: word-wrap;
+                                color: Theme.muted;
+                                font-size: 13px;
+                            }
+                            Btn {
+                                kind: 2;
+                                text: "Cancelar";
+                                clicked => { root.sync-cancel(); }
+                            }
+                        }
+                    }
+
+                    // Conectado
+                    if root.sync-connected: VerticalLayout {
+                        spacing: 10px;
+                        Btn {
+                            text: root.sync-busy ? "Sincronizando..." : "Sincronizar agora";
+                            enabled: !root.sync-busy;
+                            clicked => { root.sync-now(); }
+                        }
+                        Btn {
+                            kind: 2;
+                            text: "Desconectar";
+                            clicked => { root.sync-disconnect(); }
+                        }
+                        Text {
+                            text: "Desconectar não apaga nada: seus dados continuam neste aparelho e no Google Drive.";
+                            wrap: word-wrap;
+                            color: Theme.muted;
+                            font-size: 13px;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    } // FocusScope
+}

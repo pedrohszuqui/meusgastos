@@ -1,0 +1,76 @@
+[package]
+name = "gastos"
+version = "0.1.0"
+edition = "2021"
+description = "Controle de gastos mensais por categoria (Rust + Slint, Android)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "gastos-desktop"
+path = "src/main.rs"
+
+[dependencies]
+slint = "1.18"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
+# HTTP com TLS em Rust puro (rustls), funciona igual no Android e no desktop.
+ureq = { version = "2.12", features = ["json"] }
+# Login OAuth com PKCE (aleatoriedade segura, SHA-256, base64url, montagem de URLs)
+getrandom = "0.2"
+sha2 = "0.10"
+base64 = "0.22"
+url = "2"
+
+[target.'cfg(target_os = "android")'.dependencies]
+slint = { version = "1.18", features = ["backend-android-activity-06"] }
+jni = "0.21"
+ndk-context = "0.1"
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+rfd = "0.15"
+
+[build-dependencies]
+slint-build = "1.18"
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+strip = true
+
+# ---------- Configuração do APK (cargo-apk) ----------
+[package.metadata.android]
+package = "br.com.meusgastos"
+build_targets = ["aarch64-linux-android", "x86_64-linux-android"]
+
+# Assinatura do APK de release: defina CARGO_APK_RELEASE_KEYSTORE e
+# CARGO_APK_RELEASE_KEYSTORE_PASSWORD (veja PUBLICAR.md). Nada de senha neste arquivo.
+
+[package.metadata.android.sdk]
+min_sdk_version = 29
+target_sdk_version = 35
+
+[package.metadata.android.application]
+label = "Meus Gastos"
+
+[package.metadata.android.application.activity]
+config_changes = "orientation|screenSize|screenLayout|keyboardHidden|keyboard"
+orientation = "portrait"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.INTERNET"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.READ_MEDIA_IMAGES"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.READ_MEDIA_VISUAL_USER_SELECTED"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.READ_EXTERNAL_STORAGE"
+max_sdk_version = 32
