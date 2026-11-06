@@ -5,15 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Meus Gastos — controle de gastos mensais</title>
 <link rel="icon" type="image/png" href="favicon.png">
+<meta property="og:title" content="Meus Gastos — controle seu dinheiro">
+<meta property="og:description" content="Controle de gastos mensais por categoria, com renda, saldo, parcelas e sincronização no seu Google Drive. Android, Windows e web (iPhone).">
+<meta property="og:image" content="https://pedrohszuqui.github.io/meusgastos/og-image.jpg">
+<meta property="og:url" content="https://pedrohszuqui.github.io/meusgastos/">
+<meta name="twitter:card" content="summary_large_image">
 <meta name="description" content="Meus Gastos: app para Android e computador para controlar gastos mensais por categoria, renda, saldo e compras parceladas, com sincronização opcional no seu próprio Google Drive.">
 <style>
   :root { --verde: #2e7d32; --verde-escuro: #1b5e20; --texto: #1d241d; --cinza: #5f6b5f; --fundo: #f2f5f1; }
   * { box-sizing: border-box; }
   body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--texto); background: var(--fundo); line-height: 1.6; }
-  header { background: linear-gradient(160deg, var(--verde-escuro), var(--verde)); color: #fff; padding: 56px 20px 64px; text-align: center; }
-  header h1 { margin: 0 0 8px; font-size: 2.4rem; }
-  .logo { display: inline-flex; background: #fff; border-radius: 26px; padding: 12px; margin-bottom: 14px; box-shadow: 0 4px 14px #0003; }
-  header p { margin: 0 auto; max-width: 640px; font-size: 1.15rem; opacity: .92; }
+  header { background: radial-gradient(ellipse at center, #ededec 0%, #e3e3e2 70%, #dcdcdb 100%); padding: 0 0 64px; text-align: center; }
+  .banner { display: block; width: 100%; max-width: 1024px; height: auto; margin: 0 auto;
+            -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+                    mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent); }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  header p { margin: -8px auto 0; max-width: 640px; padding: 0 20px; font-size: 1.15rem; color: #3a4a6b; }
   main { max-width: 860px; margin: -32px auto 40px; padding: 0 16px; }
   section { background: #fff; border-radius: 18px; padding: 24px 28px; margin-bottom: 18px; box-shadow: 0 3px 12px #0001; }
   h2 { margin-top: 0; color: var(--verde-escuro); font-size: 1.35rem; }
@@ -27,9 +34,9 @@
 </head>
 <body>
 <header>
-  <div class="logo"><img src="logo.png" alt="Logo do Meus Gastos: um cofre" width="88" height="88"></div>
-  <h1>Meus Gastos</h1>
-  <p>Controle seus gastos do mês por categoria, acompanhe renda e saldo e planeje compras parceladas — no celular Android e no computador.</p>
+  <img class="banner" src="banner.jpg" alt="Meus Gastos — controle seu dinheiro" width="1024" height="420">
+  <h1 class="sr">Meus Gastos</h1>
+  <p>Controle seus gastos do mês por categoria, acompanhe renda e saldo e planeje compras parceladas — no Android, no computador e no iPhone.</p>
 </header>
 
 <main>
