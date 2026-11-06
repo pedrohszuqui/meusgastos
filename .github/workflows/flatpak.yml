@@ -1,0 +1,49 @@
+# Gera o Flatpak (Linux) do Meus Gastos.
+# - Manual (Actions → Flatpak → Run workflow) ou a cada push que muda o código: baixe em "Artifacts".
+# - Ao publicar uma release: o arquivo MeusGastos-linux.flatpak é anexado a ela.
+# Os clientes OAuth vêm dos secrets OAUTH_COMPUTADOR_JSON e OAUTH_TV_JSON (conteúdo dos JSON).
+name: Flatpak
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["src/**", "ui/**", "Cargo.*", "build.rs", "flatpak/**", ".github/workflows/flatpak.yml"]
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  flatpak:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clientes OAuth (secrets)
+        env:
+          COMPUTADOR: ${{ secrets.OAUTH_COMPUTADOR_JSON }}
+          TV: ${{ secrets.OAUTH_TV_JSON }}
+        run: |
+          mkdir -p oauth
+          if [ -n "$COMPUTADOR" ]; then printf '%s' "$COMPUTADOR" > oauth/computador.json; fi
+          if [ -n "$TV" ]; then printf '%s' "$TV" > oauth/tv.json; fi
+          ls oauth
+
+      - uses: flathub-infra/flatpak-github-actions/flatpak-builder@master
+        with:
+          bundle: MeusGastos-linux.flatpak
+          manifest-path: flatpak/br.com.meusgastos.yml
+          cache-key: flatpak-builder-${{ hashFiles('Cargo.lock') }}
+
+      - name: Anexar à release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          gh release upload "${{ github.event.release.tag_name }}" MeusGastos-linux.flatpak --clobber

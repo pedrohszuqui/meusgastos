@@ -825,6 +825,9 @@ pub fn run_desktop() {
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/share")))
         .unwrap_or_else(|| PathBuf::from("."));
     let dir = std::env::var_os("GASTOS_DATA_DIR").map(PathBuf::from).unwrap_or(base.join("MeusGastos"));
+    // Linux (Wayland): liga a janela ao br.com.meusgastos.desktop (ícone e nome corretos).
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let _ = slint::set_xdg_app_id("br.com.meusgastos");
     run(dir).expect("falha ao iniciar a interface");
 }
 

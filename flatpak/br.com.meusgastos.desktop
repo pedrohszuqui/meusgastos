@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Meus Gastos
+GenericName=Controle de gastos
+Comment=Controle seus gastos mensais por categoria, renda, saldo e parcelas
+Exec=gastos-desktop
+Icon=br.com.meusgastos
+Terminal=false
+Categories=Office;Finance;
+Keywords=gastos;finanças;dinheiro;orçamento;despesas;budget;expenses;
+StartupWMClass=br.com.meusgastos
